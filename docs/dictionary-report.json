@@ -1,0 +1,280 @@
+{
+  "source_lines": 3722,
+  "book_entries": 3611,
+  "unique_headwords": 3610,
+  "chapters": 48,
+  "matched_unique": 3563,
+  "unmatched": [
+    {
+      "word": "provided",
+      "source_line": 616,
+      "word_id": "word-da7241946d2eb0660725"
+    },
+    {
+      "word": "refundable",
+      "source_line": 652,
+      "word_id": "word-1dd7459ecf03648176b7"
+    },
+    {
+      "word": "homestay",
+      "source_line": 673,
+      "word_id": "word-6339a4d30c8fa725042f"
+    },
+    {
+      "word": "assistantship",
+      "source_line": 741,
+      "word_id": "word-d1cd4d2e4f01137b2f71"
+    },
+    {
+      "word": "bookrest",
+      "source_line": 833,
+      "word_id": "word-1922cef9be10aec29866"
+    },
+    {
+      "word": "tropospheric",
+      "source_line": 892,
+      "word_id": "word-3bfbd734227baa071f10"
+    },
+    {
+      "word": "fact sheet",
+      "source_line": 941,
+      "word_id": "word-b3933620a15c8436a6db"
+    },
+    {
+      "word": "resit",
+      "source_line": 1186,
+      "word_id": "word-5b3255c4b20ad88fe7cc"
+    },
+    {
+      "word": "flexitime",
+      "source_line": 1194,
+      "word_id": "word-cff5792c86aee0b8aa73"
+    },
+    {
+      "word": "whereas",
+      "source_line": 1344,
+      "word_id": "word-a97541517d61b2f6edb6"
+    },
+    {
+      "word": "unquote",
+      "source_line": 1351,
+      "word_id": "word-65730ec9436a3ad6edb4"
+    },
+    {
+      "word": "gullibly",
+      "source_line": 1377,
+      "word_id": "word-7cd933e0532d4c898864"
+    },
+    {
+      "word": "in accordance with",
+      "source_line": 1564,
+      "word_id": "word-93faf333c33ed8f558da"
+    },
+    {
+      "word": "get off track",
+      "source_line": 1577,
+      "word_id": "word-e7ca464535045e71db78"
+    },
+    {
+      "word": "spot on",
+      "source_line": 1751,
+      "word_id": "word-701039022100b133ee01"
+    },
+    {
+      "word": "whaling",
+      "source_line": 1763,
+      "word_id": "word-7d51d0bf6a43f9196b04"
+    },
+    {
+      "word": "regarding",
+      "source_line": 1813,
+      "word_id": "word-ed7f0287406dc11011f7"
+    },
+    {
+      "word": "in favour of",
+      "source_line": 1818,
+      "word_id": "word-82c33cd34c78d4754ea0"
+    },
+    {
+      "word": "pore over",
+      "source_line": 1828,
+      "word_id": "word-692d4ce82999ad298da2"
+    },
+    {
+      "word": "as for",
+      "source_line": 1850,
+      "word_id": "word-ddbff2ffc8c053696c01"
+    },
+    {
+      "word": "on the horizon",
+      "source_line": 1854,
+      "word_id": "word-1365c5630a473c7066c9"
+    },
+    {
+      "word": "for the sake of",
+      "source_line": 1901,
+      "word_id": "word-bf37cda97a3babed3d82"
+    },
+    {
+      "word": "cameral",
+      "source_line": 1983,
+      "word_id": "word-290cc09ccf2fb0221a29"
+    },
+    {
+      "word": "ultraclean",
+      "source_line": 2133,
+      "word_id": "word-58b38b84c5c4f3e41239"
+    },
+    {
+      "word": "orientation meeting",
+      "source_line": 2137,
+      "word_id": "word-0ef11945be9aff96e4d7"
+    },
+    {
+      "word": "ID card",
+      "source_line": 2192,
+      "word_id": "word-566ff5e30864db914c42"
+    },
+    {
+      "word": "megacity",
+      "source_line": 2254,
+      "word_id": "word-ac59a17d77dab4f58591"
+    },
+    {
+      "word": "as if",
+      "source_line": 2287,
+      "word_id": "word-f6595ed4e298322c81a5"
+    },
+    {
+      "word": "revegetate",
+      "source_line": 2321,
+      "word_id": "word-cbbd80e83ff51c4cb675"
+    },
+    {
+      "word": "albeit",
+      "source_line": 2405,
+      "word_id": "word-add339ab9bc935cf9d2b"
+    },
+    {
+      "word": "afflicting",
+      "source_line": 2415,
+      "word_id": "word-95b1f64b8f6457f18462"
+    },
+    {
+      "word": "Cantonese",
+      "source_line": 2509,
+      "word_id": "word-7886248bc48387539486"
+    },
+    {
+      "word": "Mediterranean",
+      "source_line": 2588,
+      "word_id": "word-92fbde133a4cba333888"
+    },
+    {
+      "word": "renaissance",
+      "source_line": 2635,
+      "word_id": "word-356696a17247132c1ae9"
+    },
+    {
+      "word": "instinctual",
+      "source_line": 2637,
+      "word_id": "word-10502d3ca318e9bb869b"
+    },
+    {
+      "word": "freefone",
+      "source_line": 2814,
+      "word_id": "word-55622f4b96e85f562b26"
+    },
+    {
+      "word": "MasterCard",
+      "source_line": 2846,
+      "word_id": "word-07863e7a6a2154ba864a"
+    },
+    {
+      "word": "holistically",
+      "source_line": 2872,
+      "word_id": "word-802a00686f947dc4fb63"
+    },
+    {
+      "word": "repack",
+      "source_line": 2876,
+      "word_id": "word-cf6ab42a03caafffe2ae"
+    },
+    {
+      "word": "disempower",
+      "source_line": 2880,
+      "word_id": "word-304026cf23fb23fd479c"
+    },
+    {
+      "word": "townscape",
+      "source_line": 3081,
+      "word_id": "word-fad38514f4e53650c374"
+    },
+    {
+      "word": "versus",
+      "source_line": 3340,
+      "word_id": "word-a5bfb753e5e8ac3ff91a"
+    },
+    {
+      "word": "lead to",
+      "source_line": 3390,
+      "word_id": "word-6a9733481118f8f05054"
+    },
+    {
+      "word": "in comparison with",
+      "source_line": 3395,
+      "word_id": "word-4bd083b873e77a3834db"
+    },
+    {
+      "word": "in addition to",
+      "source_line": 3406,
+      "word_id": "word-fdce563a13e03486352c"
+    },
+    {
+      "word": "solar-powered",
+      "source_line": 3611,
+      "word_id": "word-f4ece2721f6412ee3b53"
+    },
+    {
+      "word": "overgraze",
+      "source_line": 3699,
+      "word_id": "word-c6a3d251f821bbffd7b7"
+    }
+  ],
+  "variants": [
+    {
+      "word": "easy-going",
+      "lookup": "easygoing",
+      "word_id": "word-c806ed85bafe61c14563"
+    },
+    {
+      "word": "check-up",
+      "lookup": "checkup",
+      "word_id": "word-07d00dcce8781ba60430"
+    },
+    {
+      "word": "front-line",
+      "lookup": "front line",
+      "word_id": "word-cd5b0ba11ca6e8a81695"
+    },
+    {
+      "word": "water-borne",
+      "lookup": "waterborne",
+      "word_id": "word-f84f55e0ffa03594ae6d"
+    },
+    {
+      "word": "eco-friendly",
+      "lookup": "ecofriendly",
+      "word_id": "word-ff24452a476ff1efc431"
+    }
+  ],
+  "duplicates": {
+    "contaminate": [
+      3082,
+      3115
+    ]
+  },
+  "sense_count": 14887,
+  "source_sha256": "f253e5ef77d6653513e52da6f9f1eed133a883270afb598ba13f073dd49f7ea5",
+  "database_sha256": "9c27c5805028967e98216586a4141f8c4defd63b88582fd3638630f7682e3930"
+}
