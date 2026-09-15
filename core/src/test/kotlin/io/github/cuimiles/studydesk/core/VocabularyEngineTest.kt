@@ -47,9 +47,10 @@ class VocabularyEngineTest {
         store = VocabularyEngine.buildQueue(store, listOf("w1"), day3)
         val att3 = store.session!!.queue.first().id
         store = VocabularyEngine.rate(store, att3, Rating.KNOWN, day3)
-        // Stage 1 -> 2 (interval 7 days: due 2026-09-26)
+        // Third recognition moves to long-term review (90 days).
         assertEquals(2, store.progress["w1"]?.stage)
-        assertEquals("2026-09-26", store.progress["w1"]?.due)
+        assertEquals(3, store.progress["w1"]?.recognition)
+        assertEquals(90, store.progress["w1"]?.intervalDays)
     }
 
     @Test

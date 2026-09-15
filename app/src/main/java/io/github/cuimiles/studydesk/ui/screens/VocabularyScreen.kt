@@ -25,7 +25,8 @@ enum class VocabSubTab(val title: String) {
     DAILY("今日背词"),
     CHAPTERS("章节浏览"),
     SPELLING("拼写练习"),
-    FAVORITES("熟词与收藏")
+    FAVORITES("熟词与收藏"),
+    DIFFICULT("重难点")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +35,7 @@ fun VocabularyScreen(repository: StudyDeskRepository) {
     var selectedTab by remember { mutableStateOf(VocabSubTab.DAILY) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TabRow(selectedTabIndex = selectedTab.ordinal) {
+        ScrollableTabRow(selectedTabIndex = selectedTab.ordinal) {
             VocabSubTab.values().forEach { tab ->
                 Tab(
                     selected = selectedTab == tab,
@@ -49,6 +50,7 @@ fun VocabularyScreen(repository: StudyDeskRepository) {
             VocabSubTab.CHAPTERS -> ChaptersTab(repository)
             VocabSubTab.SPELLING -> SpellingTab(repository)
             VocabSubTab.FAVORITES -> FavoritesAndMasteredTab(repository)
+            VocabSubTab.DIFFICULT -> DifficultyTab(repository)
         }
     }
 }
@@ -56,278 +58,104 @@ fun VocabularyScreen(repository: StudyDeskRepository) {
 @Composable
 fun DailyStudyTab(repository: StudyDeskRepository) {
     var store by remember { mutableStateOf(repository.loadTodaySession()) }
-    val queue = store.session?.queue ?: emptyList()
-    val currentAttempt = queue.firstOrNull()
-
-    if (currentAttempt == null) {
-        // Study Completed State
-        Box(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("🎉 今日计划已完成！", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "到期复习与新词额度均已学完。温故而知新，明日继续保持！",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        store = repository.loadTodaySession()
-                    }) {
-                        Text("刷新队列")
-                    }
-                }
-            }
+    val answered = store.pendingAnswer
+    val attempt = answered?.attempt ?: store.session?.queue?.firstOrNull()
+    if (attempt == null) {
+        Column(Modifier.padding(24.dp)) {
+            Text("今日计划已完成", fontSize = 22.sp)
+            Text("已达到新词额度并完成到期复习。")
+            Button(onClick = { store = repository.loadTodaySession() }) { Text("刷新") }
         }
         return
     }
-
-    val word = remember(currentAttempt.id) { repository.contentDb.getWord(currentAttempt.entryId) }
-    val senses = remember(currentAttempt.id) { repository.contentDb.getSenses(currentAttempt.entryId) }
-    val generation = remember(currentAttempt.id) { repository.contentDb.getGeneration(currentAttempt.entryId) }
-    val isFav = store.favorites.contains(currentAttempt.entryId)
-
-    var showChinese by remember(currentAttempt.id) { mutableStateOf(false) }
-    var selectedSenseIndex by remember(currentAttempt.id) { mutableStateOf(0) }
-    var showDeepExpanded by remember(currentAttempt.id) { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Progress and quick actions header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val modeLabel = when (currentAttempt.mode) {
-                AttemptMode.NEW -> "新学"
-                AttemptMode.REVIEW -> "复习"
-                AttemptMode.RETRY -> "重试"
-            }
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(6.dp)
-            ) {
-                Text(
-                    text = "$modeLabel · 队列余 ${queue.size} 词",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-
-            Row {
-                IconButton(onClick = {
-                    store = repository.toggleFavorite(currentAttempt.entryId)
-                }) {
-                    Text(if (isFav) "★" else "☆", fontSize = 20.sp, color = if (isFav) Color(0xFFE6A23C) else Color.Gray)
-                }
-                OutlinedButton(
-                    onClick = {
-                        store = repository.markMastered(currentAttempt.entryId)
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Text("熟 (跳过)", fontSize = 12.sp)
-                }
-            }
+    val word = remember(attempt.entryId) { repository.contentDb.getWord(attempt.entryId) } ?: return
+    val senses = remember(attempt.entryId) { repository.contentDb.getSenses(attempt.entryId) }
+    val forms = remember(word) { (listOf(word.headword, word.lookup) + word.forms).distinct() }
+    val examples = remember(senses) { senses.flatMap { it.examples }.distinct().filter { ExampleText.matches(it, forms).isNotEmpty() } }
+    var showAll by remember(attempt.id) { mutableStateOf(false) }
+    var showChinese by remember(attempt.id) { mutableStateOf(false) }
+    val progress = store.progress[attempt.entryId]
+    val scroll = rememberScrollState()
+    LaunchedEffect(attempt.id, answered != null) { scroll.scrollTo(0) }
+    Column(Modifier.fillMaxSize()) {
+      Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp)) {
+        Text("${if (attempt.mode == AttemptMode.NEW) "新词" else "复习"} · 认知 ${progress?.recognition ?: 0}/3", color = MaterialTheme.colorScheme.primary)
+        Text(word.headword, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(word.pronunciation)
+            io.github.cuimiles.studydesk.ui.components.WordAudio(word.headword, attempt.id,
+                alreadyPlayed = { repository.getVocabularyStore().autoSpokenAttemptId == attempt.id },
+                onAutoPlayed = { repository.markAutoSpoken(attempt.id) })
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Main Word Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                // Headword & Pronunciation
-                Text(
-                    text = word?.headword ?: currentAttempt.entryId,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (word?.pronunciation?.isNotBlank() == true) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = word.pronunciation,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Sense Selector if multiple
-                if (senses.size > 1) {
-                    ScrollableTabRow(
-                        selectedTabIndex = selectedSenseIndex,
-                        edgePadding = 0.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        senses.forEachIndexed { idx, s ->
-                            Tab(
-                                selected = selectedSenseIndex == idx,
-                                onClick = { selectedSenseIndex = idx },
-                                text = { Text("${s.pos} · ${idx + 1}", fontSize = 12.sp) }
-                            )
+        if (answered == null) {
+            Text("先根据例句回想含义", fontSize = 13.sp)
+            if (examples.isEmpty()) Text("词典暂未收录含该词的例句，请直接回想词义。")
+            (if (showAll) examples else examples.take(3)).forEach { HighlightedExample(it, forms) }
+            if (examples.size > 3) TextButton(onClick = { showAll = !showAll }) { Text(if (showAll) "收起例句" else "更多例句（${examples.size}）") }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = { store = repository.rateWord(attempt.id, Rating.UNKNOWN) }, modifier = Modifier.weight(1f)) { Text("不认识") }
+                Button(onClick = { store = repository.rateWord(attempt.id, Rating.KNOWN) }, modifier = Modifier.weight(1f)) { Text("认识") }
+            }
+            TextButton(onClick = { store = repository.markMastered(attempt.entryId) }) { Text("熟 · 加入熟词本") }
+        } else {
+            Text("${if (answered.rating == Rating.KNOWN) "认识 +1" else "不认识 −1（最低0）"} · 下次复习 ${progress?.due.orEmpty()}")
+            if (progress?.difficult == true) Text("已加入重难点词库", color = MaterialTheme.colorScheme.error)
+            val generation = remember(attempt.entryId) { repository.contentDb.getGeneration(attempt.entryId) }
+            senses.forEachIndexed { index, sense ->
+                Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("${index + 1}. [${sense.pos}] ${sense.definitionEn}", fontWeight = FontWeight.SemiBold)
+                        Text(if (sense.frequency != null) "历史语料标注 ${sense.frequency} 次" else "暂无词义频次数据", fontSize = 11.sp)
+                        sense.examples.forEach { example ->
+                            HighlightedExample(example, forms)
+                            Text(sense.exampleSources[example] ?: "Open English Wordnet 2025", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                // Current Sense Definition (English First)
-                val currentSense = senses.getOrNull(selectedSenseIndex)
-                if (currentSense != null) {
-                    Text(
-                        text = "[${currentSense.pos}] ${currentSense.definitionEn}",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = 22.sp
-                    )
-
-                    if (currentSense.examples.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        for (eg in currentSense.examples) {
-                            Text(
-                                text = "• $eg",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 20.sp
-                            )
-                        }
-                    }
-
-                    if (currentSense.synonyms.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Synonyms: " + currentSense.synonyms.joinToString(", "),
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                } else {
-                    Text("收录释义查无词条", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Hidden Chinese Definition Toggle
-                TextButton(
-                    onClick = { showChinese = !showChinese },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(if (showChinese) "隐藏中文释义" else "显示中文释义", fontSize = 13.sp)
-                }
-                if (showChinese) {
-                    val entry = remember(currentAttempt.entryId) {
-                        repository.contentDb.getEntriesByChapter(1).find { it.wordId == currentAttempt.entryId }
-                    }
-                    Text(
-                        text = entry?.glossZh ?: "暂无中文词头注释",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                // 5-Step Deep Analysis Section
-                if (generation != null && generation.senseId == currentSense?.id) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showDeepExpanded = !showDeepExpanded },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("五步深度解析 · AI 辅助内容", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-                        Text(if (showDeepExpanded) "收起 ▲" else "展开 ▼", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-
-                    if (showDeepExpanded) {
-                        val payload = try {
-                            Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation.payloadJson)
-                        } catch (e: Exception) { null }
-
-                        if (payload != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            StepItem("1. 具体画面", payload.concreteImage)
-                            StepItem("2. 近义词对比", payload.synonymsComparison)
-                            StepItem("3. 语域及语境", payload.registerAndContexts)
-                            StepItem("4. 典型搭配", payload.collocations)
-                            StepItem("5. 联想概念", payload.associations)
-                            StepItem("6. 综合示例", payload.integratedExample)
-                            StepItem("示例说明", payload.integratedExampleMapping)
+                        if (sense.synonyms.isNotEmpty()) Text("Synonyms: ${sense.synonyms.joinToString()}")
+                        if (generation?.senseId == sense.id) {
+                            val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation.payloadJson) }.getOrNull() }
+                            var expanded by remember(attempt.id, sense.id) { mutableStateOf(false) }
+                            if (payload != null) {
+                                TextButton(onClick = { expanded = !expanded }) { Text("五步解析 · AI 辅助内容") }
+                                if (expanded) {
+                                    StepItem("1. 画面锚定", payload.concreteImage)
+                                    StepItem("2. 语义场对比", payload.synonymsComparison)
+                                    StepItem("3. 语域", payload.registerAndContexts)
+                                    StepItem("4. 语义韵", payload.collocations)
+                                    StepItem("5. 联想网络", payload.associations)
+                                    StepItem("综合示例", payload.integratedExample)
+                                    StepItem("说明", payload.integratedExampleMapping)
+                                }
+                            }
                         }
                     }
                 }
             }
+            if (senses.isEmpty()) Text("英文释义待补全")
+            TextButton(onClick = { showChinese = !showChinese }) { Text(if (showChinese) "隐藏中文" else "显示中文") }
+            if (showChinese) Text(repository.contentDb.getChineseGloss(word.id).ifBlank { "暂无中文提示" })
+
         }
+      }
+      if (answered != null) {
+          Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+              TextButton(onClick = { store = repository.toggleFavorite(word.id) }) { Text(if (word.id in store.favorites) "取消收藏" else "收藏") }
+              Button(onClick = { store = repository.nextWord() }) { Text("下一词") }
+          }
+      }
+    }
+}
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Action Buttons: 3 feedback buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Button(
-                onClick = {
-                    store = repository.rateWord(currentAttempt.id, Rating.UNKNOWN)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC0392B)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("不认识", fontSize = 15.sp)
-            }
-
-            Button(
-                onClick = {
-                    store = repository.rateWord(currentAttempt.id, Rating.FUZZY)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD35400)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("模糊", fontSize = 15.sp)
-            }
-
-            Button(
-                onClick = {
-                    store = repository.rateWord(currentAttempt.id, Rating.KNOWN)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27AE60)),
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("认识", fontSize = 15.sp)
+@Composable
+fun HighlightedExample(text: String, forms: List<String>) {
+    val annotated = remember(text, forms) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            append(text)
+            ExampleText.matches(text, forms).forEach { range ->
+                addStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold), range.first, range.last + 1)
             }
         }
     }
+    Text(annotated, modifier = Modifier.padding(vertical = 6.dp), lineHeight = 23.sp)
 }
 
 @Composable
@@ -557,5 +385,25 @@ fun FavoritesAndMasteredTab(repository: StudyDeskRepository) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun DifficultyTab(repository: StudyDeskRepository) {
+    val store = remember { repository.getVocabularyStore() }
+    var level by remember { mutableStateOf(-1) }
+    Column(Modifier.padding(12.dp)) {
+        ScrollableTabRow(selectedTabIndex = level + 1) {
+            listOf("重难点", "陌生 0", "初识 1", "渐熟 2", "长期 3").forEachIndexed { i, title ->
+                Tab(selected = level == i - 1, onClick = { level = i - 1 }, text = { Text(title) })
+            }
+        }
+        val ids = store.progress.filter { (_, p) -> p.state != ProgressState.FAMILIAR && if (level == -1) p.difficult else p.recognition == level }
+        Text("${ids.size} 词 · 根据你的学习记录分类")
+        LazyColumn { items(ids.keys.toList()) { id ->
+            val p = ids.getValue(id)
+            Text("认知 ${p.recognition}/3 · 隔天遗忘 ${p.delayedLapses} 次 · 下次 ${p.due.orEmpty()}", fontSize = 12.sp)
+            WordBrowserCard(repository, id, repository.contentDb.getChineseGloss(id))
+        } }
     }
 }

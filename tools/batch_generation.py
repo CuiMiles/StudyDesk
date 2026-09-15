@@ -88,7 +88,7 @@ def run_batch(
     SELECT w.id, w.headword, s.id, s.definition_en, s.examples_json
     FROM word w
     JOIN sense s ON w.id = s.word_id
-    WHERE s.id = (SELECT MIN(s2.id) FROM sense s2 WHERE s2.word_id = w.id)
+    WHERE s.id = (SELECT s2.id FROM sense s2 WHERE s2.word_id = w.id ORDER BY COALESCE(s2.frequency,0) DESC, s2.source_order, s2.id LIMIT 1)
     ORDER BY w.id
     """
     candidates = conn.execute(query).fetchall()

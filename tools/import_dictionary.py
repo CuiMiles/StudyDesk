@@ -4,12 +4,12 @@ import argparse, collections, hashlib, json, re, sqlite3, tempfile
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = '''
-PRAGMA user_version=1;
+PRAGMA user_version=2;
 CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 CREATE TABLE book(id TEXT PRIMARY KEY,title TEXT NOT NULL,source_sha256 TEXT NOT NULL,entry_count INTEGER NOT NULL);
-CREATE TABLE word(id TEXT PRIMARY KEY,headword TEXT NOT NULL,lookup TEXT NOT NULL,status TEXT NOT NULL,pronunciation TEXT NOT NULL);
+CREATE TABLE word(id TEXT PRIMARY KEY,headword TEXT NOT NULL,lookup TEXT NOT NULL,status TEXT NOT NULL,pronunciation TEXT NOT NULL,forms_json TEXT NOT NULL DEFAULT '[]');
 CREATE TABLE book_entry(book_id TEXT NOT NULL,position INTEGER NOT NULL,word_id TEXT NOT NULL,chapter INTEGER NOT NULL,source_line INTEGER NOT NULL,original TEXT NOT NULL,gloss_zh TEXT NOT NULL,source_pronunciation TEXT NOT NULL,PRIMARY KEY(book_id,position),FOREIGN KEY(word_id) REFERENCES word(id));
-CREATE TABLE sense(word_id TEXT NOT NULL,id TEXT NOT NULL,pos TEXT NOT NULL,definition_en TEXT NOT NULL,examples_json TEXT NOT NULL,synonyms_json TEXT NOT NULL,PRIMARY KEY(word_id,id),FOREIGN KEY(word_id) REFERENCES word(id));
+CREATE TABLE sense(word_id TEXT NOT NULL,id TEXT NOT NULL,pos TEXT NOT NULL,definition_en TEXT NOT NULL,examples_json TEXT NOT NULL,synonyms_json TEXT NOT NULL,frequency INTEGER,source_order INTEGER NOT NULL DEFAULT 0,example_sources_json TEXT NOT NULL DEFAULT '{}',PRIMARY KEY(word_id,id),FOREIGN KEY(word_id) REFERENCES word(id));
 CREATE TABLE generation(word_id TEXT PRIMARY KEY,sense_id TEXT NOT NULL,prompt_sha256 TEXT NOT NULL,input_sha256 TEXT NOT NULL,model TEXT NOT NULL,generated_at TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('generated','reviewed')),payload_json TEXT NOT NULL,FOREIGN KEY(word_id) REFERENCES word(id));
 CREATE INDEX entry_word ON book_entry(word_id);
 CREATE INDEX word_lookup ON word(lookup);
@@ -57,7 +57,7 @@ def build(book_path, source, output, report_path):
     db = sqlite3.connect(str(temporary)); db.execute('PRAGMA foreign_keys=ON'); db.executescript(SCHEMA)
     digest = hashlib.sha256(book_path.read_bytes()).hexdigest()
     db.execute('INSERT INTO book VALUES(?,?,?,?)',(BOOK_ID,'IELTS Word List',digest,len(rows)))
-    for k,v in {'schema_version':'1','dictionary':'Open English Wordnet 2025','dictionary_license':'CC BY 4.0','dictionary_url':'https://en-word.net/downloads','attribution':'Open English Wordnet Community, derived from Princeton WordNet','book_permission':'User supplied and explicitly authorized use; original transcription attribution retained in sources/ielts-word-list.txt','book_sha256':digest}.items(): db.execute('INSERT INTO metadata VALUES(?,?)',(k,v))
+    for k,v in {'schema_version':'2','dictionary':'Open English Wordnet 2025','dictionary_license':'CC BY 4.0','dictionary_url':'https://en-word.net/downloads','attribution':'Open English Wordnet Community, derived from Princeton WordNet','book_permission':'User supplied and explicitly authorized use; original transcription attribution retained in sources/ielts-word-list.txt','book_sha256':digest}.items(): db.execute('INSERT INTO metadata VALUES(?,?)',(k,v))
     seen, unmatched, variants = {}, [], []
     for r in rows:
         key = r['key']; wid = 'word-' + hashlib.sha256(key.encode()).hexdigest()[:20]
@@ -75,8 +75,8 @@ def build(book_path, source, output, report_path):
                     members=[x if isinstance(x,str) else x[0] for x in syn.get('members',[])]
                     senses[ref['synset']]=(wid,ref['synset'],pos,'; '.join(syn['definition']),json.dumps(examples,ensure_ascii=False),json.dumps([m for m in members if m != target],ensure_ascii=False))
             if not senses: status='missing';seen[key]['status']=status
-            db.execute('INSERT INTO word VALUES(?,?,?,?,?)',(wid,r['headword'],target,status,pronunciation))
-            db.executemany('INSERT INTO sense VALUES(?,?,?,?,?,?)',senses.values())
+            db.execute('INSERT INTO word(id,headword,lookup,status,pronunciation) VALUES(?,?,?,?,?)',(wid,r['headword'],target,status,pronunciation))
+            db.executemany('INSERT INTO sense(word_id,id,pos,definition_en,examples_json,synonyms_json) VALUES(?,?,?,?,?,?)',senses.values())
             if status=='missing':unmatched.append({'word':r['headword'],'source_line':r['source_line'],'word_id':wid})
             if status=='variant':variants.append({'word':r['headword'],'lookup':target,'word_id':wid})
         seen[key]['positions'].append(r['position'])

@@ -135,48 +135,13 @@ object VocabularyEngine {
         val newFailed = session.failed.toMutableList()
         val failedBefore = session.failed.contains(wordId)
 
-        when (rating) {
-            Rating.UNKNOWN -> {
-                newProgress = oldProgress.copy(
-                    stage = -1,
-                    state = ProgressState.LEARNING,
-                    due = addDays(today, 1),
-                    last = today
-                )
-                if (!failedBefore) {
-                    newFailed.add(wordId)
-                }
-                val retryCount = newRetries[wordId] ?: 0
-                if (retryCount < 2) {
-                    newRetries[wordId] = retryCount + 1
-                    val insertIdx = min(3, newQueue.size)
-                    newQueue.add(insertIdx, Attempt(UUID.randomUUID().toString(), wordId, AttemptMode.RETRY))
-                }
-            }
-            Rating.FUZZY -> {
-                newProgress = oldProgress.copy(
-                    state = ProgressState.LEARNING,
-                    due = addDays(today, 1),
-                    last = today
-                )
-            }
-            Rating.KNOWN -> {
-                if (failedBefore) {
-                    // Previously failed today; does not advance stage!
-                    newProgress = oldProgress.copy(
-                        state = ProgressState.LEARNING,
-                        due = addDays(today, 1),
-                        last = today
-                    )
-                } else {
-                    val nextStage = min(5, oldProgress.stage + 1)
-                    newProgress = oldProgress.copy(
-                        stage = nextStage,
-                        state = ProgressState.REVIEW,
-                        due = addDays(today, INTERVALS[nextStage].toLong()),
-                        last = today
-                    )
-                }
+        newProgress = AdaptiveScheduler.next(oldProgress, rating, today, store.settings, failedBefore)
+        if (rating == Rating.UNKNOWN) {
+            if (!failedBefore) newFailed.add(wordId)
+            val retryCount = newRetries[wordId] ?: 0
+            if (retryCount < 2) {
+                newRetries[wordId] = retryCount + 1
+                newQueue.add(min(3, newQueue.size), Attempt(UUID.randomUUID().toString(), wordId, AttemptMode.RETRY))
             }
         }
 
@@ -229,6 +194,8 @@ object VocabularyEngine {
         val newP = oldP.copy(
             state = ProgressState.LEARNING,
             stage = -1,
+            recognition = 0,
+            recoveryStreak = 0,
             due = today
         )
         val newProgressMap = store.progress + (wordId to newP)

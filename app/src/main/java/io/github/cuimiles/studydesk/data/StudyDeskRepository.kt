@@ -144,11 +144,24 @@ class StudyDeskRepository(context: Context) {
     fun rateWord(attemptId: String, rating: Rating): VocabularyStore {
         val currentDay = today()
         val store = getVocabularyStore()
-        if (store.events.any { it.id == attemptId }) return store
+        if (store.pendingAnswer != null || store.events.any { it.id == attemptId }) return store
         if (store.session?.day != currentDay) return loadTodaySession()
         if (store.session?.queue?.firstOrNull()?.id != attemptId) return store
         val updated = VocabularyEngine.rate(store, attemptId, rating, currentDay)
-        return persist(updated)
+        return persist(updated.copy(pendingAnswer = AnswerCard(store.session!!.queue.first(), rating, currentDay)))
+    }
+
+    fun nextWord(): VocabularyStore {
+        persist(getVocabularyStore().copy(pendingAnswer = null))
+        return loadTodaySession()
+    }
+
+    fun markAutoSpoken(attemptId: String) { persist(getVocabularyStore().copy(autoSpokenAttemptId = attemptId)) }
+
+    fun setReviewSettings(first: Int, second: Int, long: Int, adaptive: Boolean) {
+        require(first in 1..7 && second in first..30 && long in 30..365)
+        val store = getVocabularyStore()
+        persist(store.copy(settings = store.settings.copy(shortIntervals = listOf(first, second), longIntervalDays = long, adaptiveReview = adaptive)))
     }
 
     fun markMastered(wordId: String): VocabularyStore {

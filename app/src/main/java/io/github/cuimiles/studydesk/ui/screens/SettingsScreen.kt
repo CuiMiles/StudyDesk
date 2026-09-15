@@ -88,6 +88,9 @@ fun SettingsScreen(repository: StudyDeskRepository) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        ReviewSettings(repository)
+        Spacer(Modifier.height(16.dp))
+
         // Timetable Backup & Restore
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -172,8 +175,8 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("关于 StudyDesk", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(6.dp))
-                Text("版本: v0.1.0", fontSize = 13.sp)
-                Text("字典数据: Open English Wordnet 2025 (CC BY 4.0)", fontSize = 13.sp)
+                Text("版本: v0.2.0", fontSize = 13.sp)
+                Text("词典: Open English Wordnet 2025 (CC BY 4.0)；补充例句/频次: Princeton WordNet 3.0", fontSize = 13.sp)
                 Text("词表来源: IELTS Word List (3611 条用户授权词表)", fontSize = 13.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -325,4 +328,35 @@ private fun java.io.InputStream.readBytesLimited(): ByteArray {
         result.write(buffer, 0, n)
     }
     return result.toByteArray()
+}
+
+@Composable
+private fun ReviewSettings(repository: StudyDeskRepository) {
+    val settings = repository.getVocabularyStore().settings
+    var first by remember(settings) { mutableStateOf(settings.shortIntervals[0].toString()) }
+    var second by remember(settings) { mutableStateOf(settings.shortIntervals[1].toString()) }
+    var long by remember(settings) { mutableStateOf(settings.longIntervalDays.toString()) }
+    var adaptive by remember(settings) { mutableStateOf(settings.adaptiveReview) }
+    var message by remember { mutableStateOf("") }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("记忆与复习", fontWeight = FontWeight.Bold)
+            Text("认识 +1，不认识 −1，认知值达到3后转为长期复习。间隔设置用于此后的回答。", fontSize = 12.sp)
+            OutlinedTextField(first, { first = it }, label = { Text("认知1：间隔天数（1–7）") })
+            OutlinedTextField(second, { second = it }, label = { Text("认知2：间隔天数（1–30）") })
+            OutlinedTextField(long, { long = it }, label = { Text("认知3：长期天数（30–365）") })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(adaptive, { adaptive = it })
+                Text("根据遗忘记录缩短复习间隔")
+            }
+            Text("跨日遗忘累计两次进入重难点，三次跨日成功后移出。每个用户的记录存于本机私有数据库。", fontSize = 12.sp)
+            Button(onClick = {
+                try {
+                    repository.setReviewSettings(first.toInt(), second.toInt(), long.toInt(), adaptive)
+                    message = "已保存"
+                } catch (_: Exception) { message = "请输入有效间隔，第二个间隔不得小于第一个" }
+            }) { Text("保存复习设置") }
+            Text(message)
+        }
+    }
 }

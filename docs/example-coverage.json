@@ -1,0 +1,10 @@
+{
+  "added_original_examples": 474,
+  "senses_with_positive_frequency": 7458,
+  "total_examples": 17497,
+  "words_with_multiple_examples": 2446,
+  "sense_frequency_source": "Princeton WordNet 3.0 historical tagged counts; https://wordnet.princeton.edu/documentation/cntlist5wn",
+  "princeton_archive_sha256": "cbda5ea6eef7f36a97a43d4a75f85e07fccbb4f23657d27b4ccbc93e2646ab59",
+  "schema_version": "2",
+  "database_sha256": "ef87061d3f4e8a56407ebab25fa9dc8361a41e8b62397975d7aa77b7df271fc7"
+}

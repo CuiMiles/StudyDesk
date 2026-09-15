@@ -35,6 +35,28 @@ class RepositoryTest {
         assertEquals(before, repo.getVocabularyStore())
         assertEquals(1, repo.getCourses().size)
     }
+    @Test fun answerCardAndAutoplaySurviveRestartWithoutDoubleScoring() {
+        val context = RuntimeEnvironment.getApplication()
+        var repo = StudyDeskRepository(context)
+        val attempt = repo.loadTodaySession().session!!.queue.first()
+        repo.markAutoSpoken(attempt.id)
+        repo.rateWord(attempt.id, Rating.KNOWN)
+        repo.userDb.close(); repo.contentDb.close()
+        repo = StudyDeskRepository(context)
+        assertEquals(attempt, repo.loadTodaySession().pendingAnswer!!.attempt)
+        assertEquals(attempt.id, repo.getVocabularyStore().autoSpokenAttemptId)
+        assertEquals(1, repo.rateWord(attempt.id, Rating.KNOWN).progress[attempt.entryId]!!.recognition)
+        assertNull(repo.nextWord().pendingAnswer)
+    }
+    @Test fun sensesAreRankedAndIrregularFormsAreAvailable() {
+        val repo = StudyDeskRepository(RuntimeEnvironment.getApplication())
+        val word = repo.contentDb.searchWords("abandon").first { it.headword == "abandon" }
+        val senses = repo.contentDb.getSenses(word.id)
+        assertEquals(senses.map { it.frequency ?: 0 }.sortedDescending(), senses.map { it.frequency ?: 0 })
+        assertTrue(senses.flatMap { it.examples }.isNotEmpty())
+        assertTrue(repo.contentDb.getChineseGloss(word.id).isNotBlank())
+    }
+
     @Test fun rejectedRestoreDoesNotChangeExistingData() {
         val repo = StudyDeskRepository(RuntimeEnvironment.getApplication())
         repo.setDailyNewLimit(9)

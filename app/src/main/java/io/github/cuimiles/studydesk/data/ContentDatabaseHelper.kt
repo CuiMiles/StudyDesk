@@ -105,15 +105,21 @@ class ContentDatabaseHelper(private val context: Context) {
         return list
     }
 
+    fun getChineseGloss(wordId: String): String {
+        return ensureDatabase().rawQuery("SELECT gloss_zh FROM book_entry WHERE word_id=? ORDER BY position LIMIT 1", arrayOf(wordId)).use {
+            if (it.moveToFirst()) it.getString(0) else ""
+        }
+    }
+
     fun getWord(wordId: String): Word? {
         val db = ensureDatabase()
         val cursor = db.rawQuery(
-            "SELECT id, headword, lookup, status, pronunciation FROM word WHERE id = ? LIMIT 1",
+            "SELECT id, headword, lookup, status, pronunciation, forms_json FROM word WHERE id = ? LIMIT 1",
             arrayOf(wordId)
         )
         return cursor.use {
             if (it.moveToFirst()) {
-                Word(it.getString(0), it.getString(1), it.getString(2), it.getString(3), it.getString(4))
+                Word(it.getString(0), it.getString(1), it.getString(2), it.getString(3), it.getString(4), Json.decodeFromString<List<String>>(it.getString(5)))
             } else null
         }
     }
@@ -121,7 +127,7 @@ class ContentDatabaseHelper(private val context: Context) {
     fun getSenses(wordId: String): List<Sense> {
         val db = ensureDatabase()
         val cursor = db.rawQuery(
-            "SELECT word_id, id, pos, definition_en, examples_json, synonyms_json FROM sense WHERE word_id = ? ORDER BY id",
+            "SELECT word_id, id, pos, definition_en, examples_json, synonyms_json, frequency, example_sources_json FROM sense WHERE word_id = ? ORDER BY COALESCE(frequency,0) DESC, source_order, id",
             arrayOf(wordId)
         )
         val list = mutableListOf<Sense>()
@@ -146,7 +152,9 @@ class ContentDatabaseHelper(private val context: Context) {
                         pos = it.getString(2),
                         definitionEn = it.getString(3),
                         examples = examples,
-                        synonyms = synonyms
+                        synonyms = synonyms,
+                        frequency = if (it.isNull(6)) null else it.getInt(6),
+                        exampleSources = Json.decodeFromString<Map<String, String>>(it.getString(7))
                     )
                 )
             }

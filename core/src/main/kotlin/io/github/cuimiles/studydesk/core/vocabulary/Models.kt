@@ -29,7 +29,15 @@ data class UserProgress(
     val stage: Int = -1,
     val due: String? = null,
     val first: String? = null,
-    val last: String? = null
+    val last: String? = null,
+    val recognition: Int = 0,
+    val successes: Int = 0,
+    val failures: Int = 0,
+    val delayedLapses: Int = 0,
+    val difficulty: Double = 2.5,
+    val intervalDays: Int = 0,
+    val difficult: Boolean = false,
+    val recoveryStreak: Int = 0
 )
 
 @Serializable
@@ -69,7 +77,10 @@ data class ReviewEvent(
 @Serializable
 data class UserVocabularySettings(
     val dailyNewLimit: Int = 20,
-    val familiarHintSeen: Boolean = false
+    val familiarHintSeen: Boolean = false,
+    val shortIntervals: List<Int> = listOf(1, 3),
+    val longIntervalDays: Int = 90,
+    val adaptiveReview: Boolean = true
 )
 
 @Serializable
@@ -81,7 +92,9 @@ data class VocabularyStore(
     val favorites: List<String> = emptyList(),
     val daily: Map<String, DailyStats> = emptyMap(),
     val events: List<ReviewEvent> = emptyList(),
-    val session: LearningSession? = null
+    val session: LearningSession? = null,
+    val pendingAnswer: AnswerCard? = null,
+    val autoSpokenAttemptId: String? = null
 )
 
 // Read-only SQLite Dictionary Models
@@ -108,7 +121,8 @@ data class Word(
     val headword: String,
     val lookup: String,
     val status: String,
-    val pronunciation: String
+    val pronunciation: String,
+    val forms: List<String> = emptyList()
 )
 
 data class Sense(
@@ -117,7 +131,9 @@ data class Sense(
     val pos: String,
     val definitionEn: String,
     val examples: List<String> = emptyList(),
-    val synonyms: List<String> = emptyList()
+    val synonyms: List<String> = emptyList(),
+    val frequency: Int? = null,
+    val exampleSources: Map<String, String> = emptyMap()
 )
 
 data class Generation(
@@ -130,3 +146,6 @@ data class Generation(
     val status: String,
     val payloadJson: String
 )
+
+@Serializable
+data class AnswerCard(val attempt: Attempt, val rating: Rating, val day: String)
