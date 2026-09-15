@@ -149,6 +149,11 @@ fun DeskScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val learned = repository.getVocabularyStore()
+        val daily = learned.daily[todayDate]
+        Text("今日已学 ${daily?.newIds?.size ?: 0} · 已复习 ${daily?.reviewIds?.size ?: 0} · 熟词 ${learned.progress.values.count { it.state == io.github.cuimiles.studydesk.core.vocabulary.ProgressState.FAMILIAR }}")
+        Text("拼写 ${daily?.spellingCorrect ?: 0}/${daily?.spellingAttempts ?: 0} · 累计学习 ${learned.daily.size} 天", fontSize = 13.sp)
+        Spacer(Modifier.height(8.dp))
         // Vocabulary Progress Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -184,7 +189,7 @@ fun DeskScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text(text = "今日新学", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(text = "待学新词", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 

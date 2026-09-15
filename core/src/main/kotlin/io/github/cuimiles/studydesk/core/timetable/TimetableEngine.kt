@@ -55,7 +55,7 @@ object TimetableEngine {
         for (ch in normalize(name)) {
             h = (h * 31 + ch.code)
         }
-        val idx = abs(h) % PALETTE.size
+        val idx = Math.floorMod(h, PALETTE.size)
         return PALETTE[idx]
     }
 

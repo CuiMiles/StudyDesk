@@ -6,10 +6,11 @@
 
 ## 模块结构
 
-- **工作台 (Desk)**：显示当前教学周、星期、今日课程卡片、背词进度（待复习与今日新学）与快捷入口。
+- **工作台 (Desk)**：显示当前教学周、星期、今日课程卡片、背词进度（待复习、待学新词与学习统计）与快捷入口。
 - **课表 (Timetable)**：
   - 严格适配西交大 2026-2027 秋季学期日历（2026-09-14 开学，18周，11节，夏冬作息，法定停课日）。
   - 默认包含羽毛球课（第1–8周周三第3–4节，2号巨构七楼羽毛球场，胡浩），初始化一次，导入时支持自动补入及去重。
+  - 支持课程新增、编辑、确认删除；编辑校验不会破坏既有调课关系。
   - 支持单次课程调整（改期、改教室、取消本次）、恢复原安排，以及冲突检测和连续节次合并。
   - 支持旧版微信小程序课表 JSON 导入与完整备份（含调课记录）恢复。
 - **背词 (Vocabulary)**：
@@ -20,13 +21,13 @@
   - 预留五步法深度解析展示结构（具体画面、近义词对比、语域语境、典型搭配、联想概念、综合示例）。
 - **设置与数据 (Settings)**：
   - 每日新词限额调整（0–100）；
-  - 完整课表 JSON 备份与恢复（可复制到系统剪贴板）；
+  - Android 系统文件选择器导出/导入全部个人数据（课表、调课、背词进度、熟词、收藏、会话、统计及设置）；恢复先校验，再事务替换；
   - 个人数据双重确认彻底清空；
   - 离线协议与来源声明。
 
 ## 工程规范与运行环境
 
-- **IDE**：Android Studio Quail 4 (Ladybug / Meerkat 及兼容版本均可直接打开)
+- **IDE**：Android Studio Quail 4（使用支持 AGP 8.13.2 的版本）
 - **构建工具链**：
   - AGP (Android Gradle Plugin): `8.13.2`
   - Gradle: `8.13` (内置 Gradle Wrapper)
@@ -48,7 +49,7 @@ python3 -m unittest discover -s tests -v
 
 ```bash
 # 运行 core 模块单元测试与 App 构建
-./gradlew :core:test :app:assembleDebug
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
 ```
 
 产出 APK 路径：`app/build/outputs/apk/debug/app-debug.apk`。
@@ -61,7 +62,19 @@ python3 -m unittest discover -s tests -v
 python3 tools/batch_generation.py --tips sources/5steps_tips.txt --limit 20 --dry-run
 ```
 
-注：`sources/5steps_tips.txt` 需由用户提供完整提示词模板，若为空文件脚本会自动终止。
+`sources/5steps_tips.txt` 已同步用户提供的完整提示词。默认仅预演；正式运行需显式 `--no-dry-run`，接口必须由你选择。例如本地免密服务：
+
+```bash
+python3 tools/batch_generation.py --api-base http://127.0.0.1:8000/v1 --model YOUR_MODEL --api-key-env '' --limit 20 --no-dry-run
+```
+
+远程服务请用 HTTPS 地址，并通过 `--api-key-env YOUR_KEY_VARIABLE` 读取本机环境变量；不要将密钥写入源码。`--limit 0` 处理所有可匹配词，断点续跑核对模型、提示词与输入指纹；401/403 立即停止，临时错误最多三次尝试。每条生成独立提交，完成后更新词库校验和。重新构建安装 APK 后自动更新只读词库，个人记录保持独立。
+
+目前有 3611 条书目记录、3610 个不同词头、14887 条权威词典释义；47 个词未匹配，见 `docs/dictionary-report.json`。不把未匹配词伪装成有权威释义。五步生成数据尚未批量生成，需模型地址及名称；模拟 API 测试不属于真实内容。
+
+手机问答预留 `QuestionProvider`，默认禁用；章节/搜索词卡可复制问题和释义。不会在 APK 中存储供应商密钥。
+
+验证记录见 [TEST-REPORT.md](docs/TEST-REPORT.md)。真实手机验收仍需在 Android Studio 运行。
 
 ## 许可证与数据来源
 

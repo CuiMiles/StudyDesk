@@ -251,7 +251,7 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                 }
 
                 // 5-Step Deep Analysis Section
-                if (generation != null) {
+                if (generation != null && generation.senseId == currentSense?.id) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Divider()
                     Spacer(modifier = Modifier.height(8.dp))
@@ -263,7 +263,7 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("五步深度解析", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                        Text("五步深度解析 · AI 辅助内容", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                         Text(if (showDeepExpanded) "收起 ▲" else "展开 ▼", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                     }
 
@@ -280,6 +280,7 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                             StepItem("4. 典型搭配", payload.collocations)
                             StepItem("5. 联想概念", payload.associations)
                             StepItem("6. 综合示例", payload.integratedExample)
+                            StepItem("示例说明", payload.integratedExampleMapping)
                         }
                     }
                 }
@@ -341,66 +342,57 @@ fun StepItem(title: String, content: String) {
 fun ChaptersTab(repository: StudyDeskRepository) {
     val chapters = remember { repository.contentDb.getChapters() }
     var selectedChapter by remember { mutableStateOf<Int?>(null) }
-
-    if (selectedChapter == null) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item {
-                Text("IELTS Word List (共 48 单元)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-            items(chapters) { ch ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable { selectedChapter = ch },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Word List $ch", fontWeight = FontWeight.Medium)
-                        Text("查看词条 ➔", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
+    var query by remember { mutableStateOf("") }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("搜索单词") }, modifier = Modifier.fillMaxWidth())
+        if (query.isNotBlank()) {
+            val words = remember(query) { repository.contentDb.searchWords(query) }
+            LazyColumn { items(words, key = { it.id }) { WordBrowserCard(repository, it.id, "") } }
+        } else if (selectedChapter == null) {
+            Text("IELTS Word List · ${chapters.size} 单元", fontWeight = FontWeight.Bold)
+            LazyColumn { items(chapters) { chapter ->
+                TextButton(onClick = { selectedChapter = chapter }) { Text("Word List $chapter") }
+            } }
+        } else {
+            TextButton(onClick = { selectedChapter = null }) { Text("返回目录 · Word List $selectedChapter") }
+            val entries = remember(selectedChapter) { repository.contentDb.getEntriesByChapter(selectedChapter!!) }
+            LazyColumn { items(entries, key = { it.position }) { entry ->
+                WordBrowserCard(repository, entry.wordId, entry.glossZh)
+            } }
         }
-    } else {
-        val entries = remember(selectedChapter) { repository.contentDb.getEntriesByChapter(selectedChapter!!) }
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { selectedChapter = null }) {
-                    Text("⬅ 返回目录")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Word List $selectedChapter (${entries.size} 词)", fontWeight = FontWeight.Bold)
-            }
+    }
+}
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(entries) { e ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(e.original.substringBefore(" "), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(e.sourcePronunciation, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(e.glossZh, fontSize = 13.sp)
-                        }
-                    }
-                }
+@Composable
+fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: String) {
+    val word = remember(wordId) { repository.contentDb.getWord(wordId) } ?: return
+    val senses = remember(wordId) { repository.contentDb.getSenses(wordId) }
+    var showChinese by remember(wordId) { mutableStateOf(false) }
+    var senseIndex by remember(wordId) { mutableStateOf(0) }
+    var store by remember(wordId) { mutableStateOf(repository.getVocabularyStore()) }
+    var question by remember(wordId) { mutableStateOf("") }
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Text(word.headword, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(word.pronunciation)
+            val sense = senses.getOrNull(senseIndex)
+            Text(sense?.let { "[${it.pos}] ${it.definitionEn}" } ?: "English definition pending")
+            if (senses.size > 1) TextButton(onClick = { senseIndex = (senseIndex + 1) % senses.size }) { Text("释义 ${senseIndex + 1}/${senses.size} · 切换") }
+            if (chinese.isNotBlank()) {
+                TextButton(onClick = { showChinese = !showChinese }) { Text(if (showChinese) "隐藏中文" else "显示中文") }
+                if (showChinese) Text(chinese)
             }
+            Row {
+                TextButton(onClick = {
+                    store = if (store.progress[wordId]?.state == ProgressState.FAMILIAR) repository.relearn(wordId) else repository.markMastered(wordId)
+                }) { Text(if (store.progress[wordId]?.state == ProgressState.FAMILIAR) "重学" else "熟") }
+                TextButton(onClick = { store = repository.toggleFavorite(wordId) }) { Text(if (wordId in store.favorites) "取消收藏" else "收藏") }
+            }
+            OutlinedTextField(value = question, onValueChange = { question = it.take(2000) }, label = { Text("关于这个词的问题") })
+            TextButton(enabled = question.isNotBlank(), onClick = {
+                clipboard.setText(androidx.compose.ui.text.AnnotatedString("Word: ${word.headword}\nDefinition: ${sense?.definitionEn.orEmpty()}\nQuestion: $question"))
+            }) { Text("复制问题和释义 · AI 尚未连接") }
         }
     }
 }
@@ -408,7 +400,7 @@ fun ChaptersTab(repository: StudyDeskRepository) {
 @Composable
 fun SpellingTab(repository: StudyDeskRepository) {
     val store = remember { repository.getVocabularyStore() }
-    val allIds = remember { repository.contentDb.getAllWordIds().shuffled().take(50) }
+    val allIds = remember { repository.contentDb.getAllWordIds().filter { store.progress[it]?.state != ProgressState.FAMILIAR && repository.contentDb.getSenses(it).isNotEmpty() }.shuffled().take(50) }
     var currentIndex by remember { mutableStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var checkResult by remember { mutableStateOf<Boolean?>(null) }
@@ -424,6 +416,7 @@ fun SpellingTab(repository: StudyDeskRepository) {
         Text("拼写练习", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
+        if (allIds.isEmpty()) Text("暂无可练习的单词")
         if (word != null && senses != null && senses.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -472,7 +465,9 @@ fun SpellingTab(repository: StudyDeskRepository) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = {
+                        if (checkResult != null) return@Button
                         val correct = VocabularyEngine.checkSpelling(userInput, word.headword)
+                        repository.recordSpelling(word.id, correct)
                         checkResult = correct
                     },
                     modifier = Modifier.weight(1f)

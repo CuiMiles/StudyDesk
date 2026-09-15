@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -21,13 +22,21 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var repository: StudyDeskRepository
 
+    override fun onDestroy() {
+        repository.contentDb.close()
+        repository.userDb.close()
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = StudyDeskRepository(applicationContext)
 
         setContent {
             StudyDeskTheme {
-                var currentScreen by remember { mutableStateOf(Screen.DESK) }
+                var currentScreen by rememberSaveable { mutableStateOf(Screen.DESK) }
+
+                androidx.activity.compose.BackHandler(enabled = currentScreen != Screen.DESK) { currentScreen = Screen.DESK }
 
                 Scaffold(
                     bottomBar = {

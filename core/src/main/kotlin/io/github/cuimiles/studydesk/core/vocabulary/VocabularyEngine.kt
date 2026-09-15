@@ -18,7 +18,7 @@ object VocabularyEngine {
         today: String
     ): VocabularyStore {
         val oldSession = if (store.session?.day == today) {
-            store.session
+            store.session!!
         } else {
             LearningSession(day = today, queue = emptyList(), retries = emptyMap(), failed = emptyList())
         }
@@ -57,7 +57,9 @@ object VocabularyEngine {
         val seenInPending = pendingFromOld.map { it.entryId }.toSet()
         val combined = mutableListOf<Attempt>()
 
-        // 1. Due reviews not yet in pending
+        combined.addAll(pendingFromOld)
+
+        // Due reviews not yet in pending
         for (id in dueEntries) {
             if (!seenInPending.contains(id)) {
                 combined.add(Attempt(UUID.randomUUID().toString(), id, AttemptMode.REVIEW))
@@ -65,8 +67,6 @@ object VocabularyEngine {
         }
 
         // 2. Pending queue from earlier session
-        combined.addAll(pendingFromOld)
-
         val seenOverall = combined.map { it.entryId }.toMutableSet()
 
         // 3. Add fresh new words up to limit

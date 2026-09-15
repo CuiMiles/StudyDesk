@@ -64,6 +64,12 @@ class UserDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "userdata
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
 
+    fun transaction(block: () -> Unit) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try { block(); db.setTransactionSuccessful() } finally { db.endTransaction() }
+    }
+
     // Course operations
     fun getAllCourses(): List<Course> {
         val list = mutableListOf<Course>()
@@ -110,7 +116,7 @@ class UserDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "userdata
             put("weeks_json", json.encodeToString(course.weeks))
             put("note", course.note)
         }
-        writableDatabase.insertWithOnConflict("course", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        check(writableDatabase.insertWithOnConflict("course", null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) { "保存失败" }
     }
 
     fun deleteCourse(courseId: String) {
@@ -172,7 +178,7 @@ class UserDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "userdata
             put("sections_json", json.encodeToString(adj.sections))
             put("room", adj.room)
         }
-        writableDatabase.insertWithOnConflict("course_adjustment", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        check(writableDatabase.insertWithOnConflict("course_adjustment", null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) { "保存失败" }
     }
 
     fun deleteAdjustment(courseId: String, originalDate: String) {
@@ -279,7 +285,7 @@ class UserDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "userdata
             put("key", key)
             put("value", value)
         }
-        writableDatabase.insertWithOnConflict("app_setting", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        check(writableDatabase.insertWithOnConflict("app_setting", null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L) { "保存失败" }
     }
 
     fun clearAllUserData() {

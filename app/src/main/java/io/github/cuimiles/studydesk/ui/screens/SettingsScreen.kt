@@ -1,5 +1,8 @@
 package io.github.cuimiles.studydesk.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.serialization.json.*
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -34,6 +37,22 @@ fun SettingsScreen(repository: StudyDeskRepository) {
     var showConfirmClear1 by remember { mutableStateOf(false) }
     var showConfirmClear2 by remember { mutableStateOf(false) }
 
+    val exportFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) try {
+            context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(repository.exportFullBackup()) }
+                ?: error("无法打开文件")
+            Toast.makeText(context, "备份已保存", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) { Toast.makeText(context, "导出失败：${e.message}", Toast.LENGTH_LONG).show() }
+    }
+    val importFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) try {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytesLimited() } ?: error("无法读取文件")
+            importJsonText = bytes.toString(Charsets.UTF_8)
+            Json.parseToJsonElement(importJsonText).jsonObject
+            showImportDialog = true
+        } catch (e: Exception) { Toast.makeText(context, "读取失败：${e.message}", Toast.LENGTH_LONG).show() }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -57,7 +76,7 @@ fun SettingsScreen(repository: StudyDeskRepository) {
                     onValueChange = { dailyLimit = it.toInt() },
                     onValueChangeFinished = { repository.setDailyNewLimit(dailyLimit) },
                     valueRange = 0f..100f,
-                    steps = 19
+                    steps = 99
                 )
                 Text(
                     "设为 0 时暂停学习新词，已到期的复习单词依然会正常推送。",
@@ -76,14 +95,13 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("课表数据备份与恢复", fontWeight = FontWeight.SemiBold)
+                Text("全部个人数据备份与恢复", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
                         onClick = {
-                            exportJsonText = repository.exportFullBackup()
-                            showExportDialog = true
+                            exportFile.launch("StudyDesk-backup.json")
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -92,12 +110,11 @@ fun SettingsScreen(repository: StudyDeskRepository) {
 
                     OutlinedButton(
                         onClick = {
-                            importJsonText = ""
-                            showImportDialog = true
+                            importFile.launch(arrayOf("application/json", "text/*", "application/octet-stream"))
                         },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("导入课表")
+                        Text("选择文件")
                     }
                 }
             }
@@ -157,7 +174,7 @@ fun SettingsScreen(repository: StudyDeskRepository) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("版本: v0.1.0", fontSize = 13.sp)
                 Text("字典数据: Open English Wordnet 2025 (CC BY 4.0)", fontSize = 13.sp)
-                Text("词表来源: IELTS Word List (3611 条用户授权自研教学词表)", fontSize = 13.sp)
+                Text("词表来源: IELTS Word List (3611 条用户授权词表)", fontSize = 13.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     "本产品为非官方个人学习工具，离线保护隐私，不收集个人数据与设备信息。",
@@ -208,7 +225,7 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             title = { Text("导入课表 / 恢复备份") },
             text = {
                 Column {
-                    Text("粘贴课表 JSON 文本（支持小程序旧版课表或完整备份）：", fontSize = 13.sp)
+                    Text("确认导入下方文件：完整备份将替换全部个人数据；旧课表仅替换课程及调课，保留背词记录。", fontSize = 13.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = importJsonText,
@@ -226,19 +243,21 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             confirmButton = {
                 Button(onClick = {
                     try {
-                        if (importJsonText.contains("backupVersion")) {
+                        val root = Json.parseToJsonElement(importJsonText).jsonObject
+                        if (root.containsKey("backupVersion") || root.containsKey("workspaceVersion")) {
                             repository.restoreFullBackup(importJsonText)
                             Toast.makeText(context, "完整备份已成功恢复", Toast.LENGTH_SHORT).show()
                         } else {
                             val count = repository.importTimetable(importJsonText, supplementBadminton)
                             Toast.makeText(context, "成功导入 $count 门课程", Toast.LENGTH_SHORT).show()
                         }
+                        dailyLimit = repository.getVocabularyStore().settings.dailyNewLimit
                         showImportDialog = false
                     } catch (e: Exception) {
                         Toast.makeText(context, "导入失败: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 }) {
-                    Text("校验并导入")
+                    Text("确认替换并导入")
                 }
             },
             dismissButton = {
@@ -280,6 +299,7 @@ fun SettingsScreen(repository: StudyDeskRepository) {
                 Button(
                     onClick = {
                         repository.clearAllUserData()
+                        dailyLimit = 20
                         showConfirmClear2 = false
                         Toast.makeText(context, "个人数据已清空", Toast.LENGTH_SHORT).show()
                     },
@@ -293,4 +313,16 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             }
         )
     }
+}
+
+private fun java.io.InputStream.readBytesLimited(): ByteArray {
+    val result = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    while (true) {
+        val n = read(buffer)
+        if (n < 0) break
+        require(result.size() + n <= 20_000_000) { "文件超过20MB" }
+        result.write(buffer, 0, n)
+    }
+    return result.toByteArray()
 }

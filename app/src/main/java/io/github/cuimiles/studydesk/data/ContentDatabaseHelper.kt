@@ -22,13 +22,22 @@ class ContentDatabaseHelper(private val context: Context) {
         if (database != null && database!!.isOpen) return database!!
 
         val dbFile = context.getDatabasePath(dbName)
-        if (!dbFile.exists()) {
+        val expected = context.assets.open("content.sha256").bufferedReader().use { it.readText().trim().substringBefore(" ") }
+        val stamp = File(dbFile.path + ".sha256")
+        if (!dbFile.exists() || !stamp.exists() || stamp.readText() != expected) {
             dbFile.parentFile?.mkdirs()
+            val temporary = File(dbFile.path + ".new")
             context.assets.open(dbName).use { input ->
-                FileOutputStream(dbFile).use { output ->
-                    input.copyTo(output)
-                }
+                FileOutputStream(temporary).use { output -> input.copyTo(output); output.fd.sync() }
             }
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            temporary.inputStream().use { input ->
+                val buffer = ByteArray(8192)
+                while (true) { val n = input.read(buffer); if (n < 0) break; digest.update(buffer, 0, n) }
+            }
+            require(digest.digest().joinToString("") { "%02x".format(it) } == expected) { "词库校验失败" }
+            check(temporary.renameTo(dbFile)) { "无法更新词库" }
+            stamp.writeText(expected)
         }
         val db = SQLiteDatabase.openDatabase(dbFile.path, null, SQLiteDatabase.OPEN_READONLY)
         database = db
@@ -86,7 +95,7 @@ class ContentDatabaseHelper(private val context: Context) {
 
     fun getAllWordIds(): List<String> {
         val db = ensureDatabase()
-        val cursor = db.rawQuery("SELECT DISTINCT word_id FROM book_entry ORDER BY position ASC", null)
+        val cursor = db.rawQuery("SELECT word_id FROM book_entry GROUP BY word_id ORDER BY MIN(position) ASC", null)
         val list = mutableListOf<String>()
         cursor.use {
             while (it.moveToNext()) {
@@ -112,7 +121,7 @@ class ContentDatabaseHelper(private val context: Context) {
     fun getSenses(wordId: String): List<Sense> {
         val db = ensureDatabase()
         val cursor = db.rawQuery(
-            "SELECT word_id, id, pos, definition_en, examples_json, synonyms_json FROM sense WHERE word_id = ?",
+            "SELECT word_id, id, pos, definition_en, examples_json, synonyms_json FROM sense WHERE word_id = ? ORDER BY id",
             arrayOf(wordId)
         )
         val list = mutableListOf<Sense>()

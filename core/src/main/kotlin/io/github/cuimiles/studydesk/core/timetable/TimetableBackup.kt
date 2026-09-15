@@ -89,6 +89,7 @@ object TimetableBackup {
                 if (it.id.isBlank()) it.copy(id = "course-" + UUID.randomUUID().toString().substring(0, 8))
                 else it
             }
+            require(coursesWithIds.map { it.id }.distinct().size == coursesWithIds.size) { "课程ID重复" }
             return TimetableStore(
                 schemaVersion = 1,
                 semesterId = "2026-fall",

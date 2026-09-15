@@ -26,6 +26,7 @@ class TestBatchGeneration(unittest.TestCase):
 
     def test_validate_payload_success(self):
         sample = {
+            "integrated_example_mapping": "The flood scene anchors the image; contrasts, report register, negative damage prosody and climate concepts support all five steps.",
             "concrete_image": "A sturdy stone embankment holding back turbulent storm floodwaters from village houses.",
             "synonyms_comparison": "1. mitigate: softens the impact without total removal.\n2. alleviate: eases suffering or pain.\n3. lessen: general reduction of quantity or severity.",
             "register_and_contexts": "Formal / Academic context; municipal disaster mitigation planning.",
@@ -66,7 +67,7 @@ class TestBatchGeneration(unittest.TestCase):
     def test_word_count_bounds(self):
         sample = {
             "concrete_image": "A barrier",
-            "synonyms_comparison": "1. apple 2. banana 3. cherry comparison details",
+            "synonyms_comparison": "1. apple: first\n2. banana: second\n3. cherry: third",
             "register_and_contexts": "formal",
             "collocations": "mitigate risk, mitigate impact",
             "associations": "risk, harm, disaster",

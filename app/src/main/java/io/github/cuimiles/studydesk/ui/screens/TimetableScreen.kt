@@ -29,9 +29,12 @@ fun TimetableScreen(repository: StudyDeskRepository) {
     var selectedWeek by remember { mutableStateOf(actualCurrentWeek) }
 
     var scheduleBlocks by remember { mutableStateOf<List<DisplayGroup>>(emptyList()) }
+    var selectionChoices by remember { mutableStateOf<List<Occurrence>>(emptyList()) }
     var selectedGroup by remember { mutableStateOf<DisplayGroup?>(null) }
     var showAdjustDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
+    var editingCourse by remember { mutableStateOf<Course?>(null) }
+    var deletingCourse by remember { mutableStateOf<Course?>(null) }
     var reloadTrigger by remember { mutableStateOf(0) }
 
     LaunchedEffect(selectedWeek, reloadTrigger) {
@@ -223,7 +226,11 @@ fun TimetableScreen(repository: StudyDeskRepository) {
                                         Color(block.theme.background),
                                         shape = RoundedCornerShape(6.dp)
                                     )
-                                    .clickable { selectedGroup = block }
+                                    .clickable {
+                                        val overlaps = scheduleBlocks.filter { it.occurrence.date == occ.date && it.start <= block.end && it.end >= block.start }
+                                        val choices = overlaps.flatMap { it.members.ifEmpty { listOf(it.occurrence) } }.distinctBy { "${it.course.id}@${it.originalDate}" }
+                                        if (choices.size > 1) selectionChoices = choices else selectedGroup = block
+                                    }
                                     .padding(4.dp)
                             ) {
                                 Column {
@@ -268,6 +275,17 @@ fun TimetableScreen(repository: StudyDeskRepository) {
         }
     }
 
+    if (selectionChoices.isNotEmpty()) {
+        AlertDialog(onDismissRequest = { selectionChoices = emptyList() }, title = { Text("选择课程") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                selectionChoices.forEach { occurrence ->
+                    TextButton(onClick = {
+                        selectedGroup = DisplayGroup(occurrence, occurrence.sections.min(), occurrence.sections.max())
+                        selectionChoices = emptyList()
+                    }) { Text("${occurrence.course.name} · ${sectionLabel(occurrence.sections)}节 · ${occurrence.room}") }
+                }
+            } }, confirmButton = { TextButton(onClick = { selectionChoices = emptyList() }) { Text("关闭") } })
+    }
     // Detail Dialog
     selectedGroup?.let { group ->
         val occ = group.occurrence
@@ -323,6 +341,8 @@ fun TimetableScreen(repository: StudyDeskRepository) {
         val occ = selectedGroup!!.occurrence
         var newDate by remember { mutableStateOf(occ.date) }
         var newRoom by remember { mutableStateOf(occ.room) }
+        var newSections by remember { mutableStateOf(occ.sections.joinToString(",")) }
+        var adjustmentError by remember { mutableStateOf("") }
         var isCancel by remember { mutableStateOf(false) }
 
         AlertDialog(
@@ -331,6 +351,8 @@ fun TimetableScreen(repository: StudyDeskRepository) {
             text = {
                 Column {
                     Text("原日期: ${occ.originalDate}", fontSize = 13.sp)
+                    OutlinedTextField(newSections, { newSections = it }, label = { Text("节次（如3-4）") })
+                    if (adjustmentError.isNotBlank()) Text(adjustmentError, color = MaterialTheme.colorScheme.error)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = newDate,
@@ -354,20 +376,21 @@ fun TimetableScreen(repository: StudyDeskRepository) {
             },
             confirmButton = {
                 Button(onClick = {
-                    if (validDate(newDate)) {
+                    try {
+                        require(validDate(newDate) && weekOf(newDate) in 1..18) { "日期须在本学期内" }
                         val adj = CourseAdjustment(
                             courseId = occ.course.id,
                             originalDate = occ.originalDate,
                             cancelled = isCancel,
                             date = newDate,
-                            sections = occ.sections,
+                            sections = parseCourseNumbers(newSections, 11),
                             room = newRoom
                         )
                         repository.saveAdjustment(adj)
                         showAdjustDialog = false
                         selectedGroup = null
                         reloadTrigger++
-                    }
+                    } catch (e: Exception) { adjustmentError = e.message ?: "保存失败" }
                 }) {
                     Text("确认保存")
                 }
@@ -405,6 +428,14 @@ fun TimetableScreen(repository: StudyDeskRepository) {
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    Button(onClick = { editingCourse = Course(name = "", weekday = 1, sections = listOf(1, 2), weeks = (1..16).toList()) }) { Text("新增课程") }
+                    val adjustments = remember(reloadTrigger) { repository.getAdjustments() }
+                    for (adjustment in adjustments) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${allCourses.find { it.id == adjustment.courseId }?.name.orEmpty()} · ${adjustment.originalDate} · ${if (adjustment.cancelled) "已取消" else "已调课"}", modifier = Modifier.weight(1f), fontSize = 12.sp)
+                            TextButton(onClick = { repository.deleteAdjustment(adjustment.courseId, adjustment.originalDate); reloadTrigger++ }) { Text("恢复") }
+                        }
+                    }
                     for (c in allCourses) {
                         Row(
                             modifier = Modifier
@@ -417,10 +448,8 @@ fun TimetableScreen(repository: StudyDeskRepository) {
                                 Text(c.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("周${CalendarConfig.DAYS.getOrElse(c.weekday - 1) { "" }} 第${sectionLabel(c.sections)}节 · ${c.room}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = {
-                                repository.deleteCourse(c.id)
-                                reloadTrigger++
-                            }) {
+                            TextButton(onClick = { editingCourse = c }) { Text("编辑") }
+                            IconButton(onClick = { deletingCourse = c }) {
                                 Text("🗑", fontSize = 14.sp)
                             }
                         }
@@ -435,4 +464,61 @@ fun TimetableScreen(repository: StudyDeskRepository) {
             }
         )
     }
+    deletingCourse?.let { course ->
+        AlertDialog(onDismissRequest = { deletingCourse = null }, title = { Text("删除 ${course.name}？") },
+            text = { Text("同时删除该课程的调课记录。") },
+            confirmButton = { TextButton(onClick = { repository.deleteCourse(course.id); deletingCourse = null; reloadTrigger++ }) { Text("删除") } },
+            dismissButton = { TextButton(onClick = { deletingCourse = null }) { Text("取消") } })
+    }
+    editingCourse?.let { course ->
+        CourseEditor(course, onDismiss = { editingCourse = null }, onSave = { updated ->
+            repository.saveCourse(updated)
+            editingCourse = null
+            reloadTrigger++
+        })
+    }
+
+}
+
+@Composable
+private fun CourseEditor(course: Course, onDismiss: () -> Unit, onSave: (Course) -> Unit) {
+    var name by remember(course) { mutableStateOf(course.name) }
+    var room by remember(course) { mutableStateOf(course.room) }
+    var teachers by remember(course) { mutableStateOf(course.teachers.joinToString(",")) }
+    var weekday by remember(course) { mutableStateOf(course.weekday.toString()) }
+    var sections by remember(course) { mutableStateOf(course.sections.joinToString(",")) }
+    var weeks by remember(course) { mutableStateOf(course.weeks.joinToString(",")) }
+    var error by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(if (course.id.isBlank()) "新增课程" else "编辑课程") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            OutlinedTextField(name, { name = it }, label = { Text("课程名称") })
+            OutlinedTextField(room, { room = it }, label = { Text("地点") })
+            OutlinedTextField(teachers, { teachers = it }, label = { Text("教师（逗号分隔）") })
+            OutlinedTextField(weekday, { weekday = it }, label = { Text("星期（1–7）") })
+            OutlinedTextField(sections, { sections = it }, label = { Text("节次（如 3,4 或 3-4）") })
+            OutlinedTextField(weeks, { weeks = it }, label = { Text("周次（如 1-8）") })
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+        } }, confirmButton = { TextButton(onClick = {
+            try {
+                require(name.isNotBlank() && name.length <= 500 && room.length <= 500) { "请输入有效名称和地点" }
+                val day = weekday.toInt(); require(day in 1..7) { "星期应为1–7" }
+                val updated = course.copy(id = course.id.ifBlank { java.util.UUID.randomUUID().toString() },
+                    name = name.trim(), room = room.trim(), teachers = teachers.replace('，', ',').split(',').map { it.trim() }.filter { it.isNotBlank() },
+                    weekday = day, sections = parseCourseNumbers(sections, 11), weeks = parseCourseNumbers(weeks, 18))
+                onSave(updated)
+            } catch (e: Exception) { error = e.message ?: "输入无效" }
+        }) { Text("保存") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+}
+
+private fun parseCourseNumbers(text: String, max: Int): List<Int> {
+    val numbers = text.replace('，', ',').split(',').flatMap { token ->
+        val parts = token.trim().split('-')
+        require(parts.size in 1..2) { "请输入数字或区间" }
+        val start = parts[0].trim().toInt()
+        val end = if (parts.size == 2) parts[1].trim().toInt() else start
+        require(start in 1..max && end in start..max) { "范围须在1–${max}以内" }
+        (start..end).toList()
+    }.distinct().sorted()
+    require(numbers.isNotEmpty()) { "不能为空" }
+    return numbers
 }

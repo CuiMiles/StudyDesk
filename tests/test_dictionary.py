@@ -1,4 +1,6 @@
 import sqlite3
+import hashlib
+from tools.import_dictionary import parse_book, lookup
 import unittest
 from pathlib import Path
 
@@ -9,6 +11,19 @@ class TestDictionary(unittest.TestCase):
         self.db_path = ROOT / "app/src/main/assets/content.db"
         self.book_path = ROOT / "sources/ielts-word-list.txt"
         self.report_path = ROOT / "docs/dictionary-report.json"
+
+    def test_source_rows_and_checksum_match_assets(self):
+        rows = parse_book(self.book_path)
+        self.assertEqual(len(rows), 3611)
+        self.assertEqual(len(set(row['key'] for row in rows)), 3610)
+        with sqlite3.connect(str(self.db_path)) as conn:
+            actual = conn.execute('SELECT position, source_line, original FROM book_entry ORDER BY position').fetchall()
+        self.assertEqual(actual, [(row['position'], row['source_line'], row['original']) for row in rows])
+        self.assertEqual(hashlib.sha256(self.db_path.read_bytes()).hexdigest(), self.db_path.with_suffix('.sha256').read_text().strip())
+
+    def test_lookup_does_not_guess_unknown_words(self):
+        self.assertEqual(lookup('not-a-real-word', {'real': {}})[1], 'missing')
+        self.assertEqual(lookup('easy-going', {'easygoing': {}}), ('easygoing', 'variant'))
 
     def test_assets_exist(self):
         self.assertTrue(self.db_path.exists(), "content.db must exist in app/src/main/assets")

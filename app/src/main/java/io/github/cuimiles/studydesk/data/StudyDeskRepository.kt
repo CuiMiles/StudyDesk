@@ -1,6 +1,9 @@
 package io.github.cuimiles.studydesk.data
 
 import android.content.Context
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.*
+import io.github.cuimiles.studydesk.core.backup.WorkspaceBackup
 import io.github.cuimiles.studydesk.core.calendar.today
 import io.github.cuimiles.studydesk.core.timetable.Course
 import io.github.cuimiles.studydesk.core.timetable.CourseAdjustment
@@ -29,10 +32,19 @@ class StudyDeskRepository(context: Context) {
 
     // Timetable
     fun getCourses(): List<Course> = userDb.getAllCourses()
-    fun saveCourse(course: Course) = userDb.saveCourse(course)
+    fun saveCourse(course: Course) {
+        val courses = getCourses().filterNot { it.id == course.id } + course
+        val store = TimetableStore(courses = courses, adjustments = getAdjustments(), backupVersion = 1)
+        TimetableBackup.parse(TimetableBackup.exportBackup(store), true)
+        userDb.saveCourse(course)
+    }
     fun deleteCourse(courseId: String) = userDb.deleteCourse(courseId)
     fun getAdjustments(): List<CourseAdjustment> = userDb.getAllAdjustments()
-    fun saveAdjustment(adj: CourseAdjustment) = userDb.saveAdjustment(adj)
+    fun saveAdjustment(adj: CourseAdjustment) {
+        val adjustments = getAdjustments().filterNot { it.courseId == adj.courseId && it.originalDate == adj.originalDate } + adj
+        TimetableBackup.parse(TimetableBackup.exportBackup(TimetableStore(courses = getCourses(), adjustments = adjustments, backupVersion = 1)), true)
+        userDb.saveAdjustment(adj)
+    }
     fun deleteAdjustment(courseId: String, originalDate: String) = userDb.deleteAdjustment(courseId, originalDate)
 
     fun getWeekSchedule(week: Int): List<DisplayGroup> {
@@ -49,25 +61,53 @@ class StudyDeskRepository(context: Context) {
         } else {
             parsed.courses
         }
-        userDb.clearAndSetCourses(courses)
+        userDb.transaction {
+            userDb.clearAndSetCourses(courses)
+            userDb.clearAndSetAdjustments(emptyList())
+        }
         return courses.size
     }
 
     fun restoreFullBackup(text: String) {
-        val parsed = TimetableBackup.parse(text, isBackup = true)
-        userDb.clearAndSetCourses(parsed.courses)
-        userDb.clearAndSetAdjustments(parsed.adjustments)
+        val root = Json.parseToJsonElement(text).jsonObject
+        if (root.containsKey("workspaceVersion")) {
+            val backup = WorkspaceBackup.parse(text)
+            userDb.transaction {
+                userDb.clearAndSetCourses(backup.timetable.courses)
+                userDb.clearAndSetAdjustments(backup.timetable.adjustments)
+                userDb.setSetting("vocabulary_store", Json.encodeToString(backup.vocabulary))
+                userDb.setSetting("badminton_initialized", "true")
+            }
+            cachedStore = backup.vocabulary
+        } else {
+            val parsed = TimetableBackup.parse(text, isBackup = true)
+            userDb.transaction {
+                userDb.clearAndSetCourses(parsed.courses)
+                userDb.clearAndSetAdjustments(parsed.adjustments)
+                userDb.setSetting("badminton_initialized", "true")
+            }
+        }
     }
 
-    fun exportFullBackup(): String {
-        val store = TimetableStore(
-            schemaVersion = 1,
-            semesterId = "2026-fall",
-            courses = getCourses(),
-            adjustments = getAdjustments(),
-            backupVersion = 1
-        )
-        return TimetableBackup.exportBackup(store)
+    fun exportFullBackup(): String = Json { encodeDefaults = true }.encodeToString(
+        WorkspaceBackup(timetable = TimetableStore(courses = getCourses(),
+            adjustments = getAdjustments(), backupVersion = 1), vocabulary = getVocabularyStore())
+    )
+
+    private fun persist(store: VocabularyStore): VocabularyStore {
+        userDb.setSetting("vocabulary_store", Json.encodeToString(store))
+        cachedStore = store
+        return store
+    }
+
+    fun recordSpelling(wordId: String, correct: Boolean) {
+        val store = getVocabularyStore()
+        val day = today()
+        val stats = store.daily[day] ?: DailyStats()
+        persist(store.copy(revision = store.revision + 1, daily = store.daily + (day to stats.copy(
+            spellingAttempts = stats.spellingAttempts + 1,
+            spellingCorrect = stats.spellingCorrect + if (correct) 1 else 0,
+            spellingIds = (stats.spellingIds + wordId).distinct()))))
     }
 
     // Vocabulary
@@ -75,6 +115,11 @@ class StudyDeskRepository(context: Context) {
 
     fun getVocabularyStore(): VocabularyStore {
         if (cachedStore == null) {
+            val saved = userDb.getSetting("vocabulary_store")
+            if (saved.isNotBlank()) {
+                cachedStore = Json.decodeFromString<VocabularyStore>(saved)
+                return cachedStore!!
+            }
             val progressMap = userDb.getProgressMap()
             val favorites = userDb.getFavorites().toList()
             val limitStr = userDb.getSetting("daily_new_limit", "20")
@@ -93,55 +138,49 @@ class StudyDeskRepository(context: Context) {
         val baseStore = getVocabularyStore()
         val allWordIds = contentDb.getAllWordIds()
         val updated = VocabularyEngine.buildQueue(baseStore, allWordIds, currentDay)
-        cachedStore = updated
-        return updated
+        return persist(updated)
     }
 
     fun rateWord(attemptId: String, rating: Rating): VocabularyStore {
         val currentDay = today()
         val store = getVocabularyStore()
+        if (store.events.any { it.id == attemptId }) return store
+        if (store.session?.day != currentDay) return loadTodaySession()
+        if (store.session?.queue?.firstOrNull()?.id != attemptId) return store
         val updated = VocabularyEngine.rate(store, attemptId, rating, currentDay)
-        cachedStore = updated
-        userDb.saveProgressMap(updated.progress)
-        return updated
+        return persist(updated)
     }
 
     fun markMastered(wordId: String): VocabularyStore {
         val store = getVocabularyStore()
         val updated = VocabularyEngine.markFamiliar(store, wordId)
-        cachedStore = updated
-        val p = updated.progress[wordId]
-        if (p != null) userDb.saveProgress(wordId, p)
-        return updated
+        return persist(updated)
     }
 
     fun relearn(wordId: String): VocabularyStore {
         val currentDay = today()
         val store = getVocabularyStore()
         val updated = VocabularyEngine.relearn(store, wordId, currentDay)
-        cachedStore = updated
-        val p = updated.progress[wordId]
-        if (p != null) userDb.saveProgress(wordId, p)
-        return updated
+        return persist(updated)
     }
 
     fun toggleFavorite(wordId: String): VocabularyStore {
         val store = getVocabularyStore()
-        val isFav = store.favorites.contains(wordId)
-        userDb.setFavorite(wordId, !isFav)
         val updated = VocabularyEngine.toggleFavorite(store, wordId)
-        cachedStore = updated
-        return updated
+        return persist(updated)
     }
 
     fun setDailyNewLimit(limit: Int) {
-        userDb.setSetting("daily_new_limit", limit.toString())
+        require(limit in 0..100)
         val store = getVocabularyStore()
-        cachedStore = store.copy(settings = store.settings.copy(dailyNewLimit = limit))
+        persist(store.copy(settings = store.settings.copy(dailyNewLimit = limit)))
     }
 
     fun clearAllUserData() {
-        userDb.clearAllUserData()
+        userDb.transaction {
+            userDb.clearAllUserData()
+            userDb.setSetting("badminton_initialized", "true")
+        }
         cachedStore = null
     }
 }

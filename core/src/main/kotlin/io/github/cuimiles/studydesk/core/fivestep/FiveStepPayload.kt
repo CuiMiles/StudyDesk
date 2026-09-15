@@ -57,9 +57,9 @@ object FiveStepValidator {
             return ValidationResult(false, "synonyms_comparison 必须对比至少3个近义词")
         }
 
-        // Example word count check: 50-100 words (tolerant bounds 40-120)
+        // Example word count check: 50-100 words (strict bounds 50-100)
         val wc = countWords(payload.integratedExample)
-        if (wc < 40 || wc > 120) {
+        if (wc < 50 || wc > 100) {
             return ValidationResult(false, "integrated_example 词数 ($wc) 不在 50–100 词范围内")
         }
 
