@@ -1,5 +1,8 @@
 package io.github.cuimiles.studydesk.ui.screens
 
+import io.github.cuimiles.studydesk.R
+import io.github.cuimiles.studydesk.ui.components.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -63,7 +66,6 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
     if (attempt == null) {
         Column(Modifier.padding(24.dp)) {
             Text("今日计划已完成", fontSize = 22.sp)
-            Text("已达到新词额度并完成到期复习。")
             Button(onClick = { store = repository.loadTodaySession() }) { Text("刷新") }
         }
         return
@@ -76,11 +78,19 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
     var showChinese by remember(attempt.id) { mutableStateOf(false) }
     val progress = store.progress[attempt.entryId]
     val scroll = rememberScrollState()
-    LaunchedEffect(attempt.id, answered != null) { scroll.scrollTo(0) }
+    LaunchedEffect(attempt.id, answered != null, showChinese) { scroll.scrollTo(0) }
     Column(Modifier.fillMaxSize()) {
       Column(Modifier.weight(1f).verticalScroll(scroll).padding(16.dp)) {
-        Text("${if (attempt.mode == AttemptMode.NEW) "新词" else "复习"} · 认知 ${progress?.recognition ?: 0}/3", color = MaterialTheme.colorScheme.primary)
-        Text(word.headword, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(word.headword, fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(8.dp))
+            RecognitionDots(progress?.recognition ?: 0)
+            if (progress?.difficult == true) {
+                Spacer(Modifier.width(8.dp))
+                Icon(painterResource(R.drawable.ic_alert), contentDescription = "重难点词", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+            }
+            if (answered == null) TextButton(onClick = { store = repository.markMastered(attempt.entryId) }) { Text("熟") }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(word.pronunciation)
             io.github.cuimiles.studydesk.ui.components.WordAudio(word.headword, attempt.id,
@@ -88,34 +98,27 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                 onAutoPlayed = { repository.markAutoSpoken(attempt.id) })
         }
         if (answered == null) {
-            Text("先根据例句回想含义", fontSize = 13.sp)
-            if (examples.isEmpty()) Text("词典暂未收录含该词的例句，请直接回想词义。")
+            if (examples.isEmpty()) Text("暂无例句")
             (if (showAll) examples else examples.take(3)).forEach { HighlightedExample(it, forms) }
-            if (examples.size > 3) TextButton(onClick = { showAll = !showAll }) { Text(if (showAll) "收起例句" else "更多例句（${examples.size}）") }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { store = repository.rateWord(attempt.id, Rating.UNKNOWN) }, modifier = Modifier.weight(1f)) { Text("不认识") }
-                Button(onClick = { store = repository.rateWord(attempt.id, Rating.KNOWN) }, modifier = Modifier.weight(1f)) { Text("认识") }
+            if (examples.size > 3) IconButton(onClick = { showAll = !showAll }) {
+                Icon(painterResource(if (showAll) R.drawable.ic_collapse else R.drawable.ic_expand), contentDescription = if (showAll) "收起例句" else "更多例句")
             }
-            TextButton(onClick = { store = repository.markMastered(attempt.entryId) }) { Text("熟 · 加入熟词本") }
         } else {
-            Text("${if (answered.rating == Rating.KNOWN) "认识 +1" else "不认识 −1（最低0）"} · 下次复习 ${progress?.due.orEmpty()}")
-            if (progress?.difficult == true) Text("已加入重难点词库", color = MaterialTheme.colorScheme.error)
+            if (showChinese) Text(repository.contentDb.getChineseGloss(word.id).ifBlank { "暂无中文提示" }, modifier = Modifier.padding(vertical = 8.dp))
             val generation = remember(attempt.entryId) { repository.contentDb.getGeneration(attempt.entryId) }
             senses.forEachIndexed { index, sense ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Column(Modifier.padding(12.dp)) {
                         Text("${index + 1}. [${sense.pos}] ${sense.definitionEn}", fontWeight = FontWeight.SemiBold)
-                        Text(if (sense.frequency != null) "历史语料标注 ${sense.frequency} 次" else "暂无词义频次数据", fontSize = 11.sp)
                         sense.examples.forEach { example ->
                             HighlightedExample(example, forms)
-                            Text(sense.exampleSources[example] ?: "Open English Wordnet 2025", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (sense.synonyms.isNotEmpty()) Text("Synonyms: ${sense.synonyms.joinToString()}")
                         if (generation?.senseId == sense.id) {
                             val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation.payloadJson) }.getOrNull() }
                             var expanded by remember(attempt.id, sense.id) { mutableStateOf(false) }
                             if (payload != null) {
-                                TextButton(onClick = { expanded = !expanded }) { Text("五步解析 · AI 辅助内容") }
+                                TextButton(onClick = { expanded = !expanded }) { Text("五步解析") }
                                 if (expanded) {
                                     StepItem("1. 画面锚定", payload.concreteImage)
                                     StepItem("2. 语义场对比", payload.synonymsComparison)
@@ -131,15 +134,19 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                 }
             }
             if (senses.isEmpty()) Text("英文释义待补全")
-            TextButton(onClick = { showChinese = !showChinese }) { Text(if (showChinese) "隐藏中文" else "显示中文") }
-            if (showChinese) Text(repository.contentDb.getChineseGloss(word.id).ifBlank { "暂无中文提示" })
 
         }
       }
-      if (answered != null) {
-          Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-              TextButton(onClick = { store = repository.toggleFavorite(word.id) }) { Text(if (word.id in store.favorites) "取消收藏" else "收藏") }
+      Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+          horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+          FavoriteIcon(word.id in store.favorites) { store = repository.toggleFavorite(word.id) }
+          if (answered != null) {
+              ChineseIcon(showChinese) { showChinese = !showChinese }
+              Spacer(Modifier.weight(1f))
               Button(onClick = { store = repository.nextWord() }) { Text("下一词") }
+          } else {
+              OutlinedButton(onClick = { store = repository.rateWord(attempt.id, Rating.UNKNOWN) }, modifier = Modifier.weight(1f)) { Text("不认识") }
+              Button(onClick = { store = repository.rateWord(attempt.id, Rating.KNOWN) }, modifier = Modifier.weight(1f)) { Text("认识") }
           }
       }
     }
@@ -198,29 +205,34 @@ fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: St
     var showChinese by remember(wordId) { mutableStateOf(false) }
     var senseIndex by remember(wordId) { mutableStateOf(0) }
     var store by remember(wordId) { mutableStateOf(repository.getVocabularyStore()) }
+    var showQuestion by remember(wordId) { mutableStateOf(false) }
     var question by remember(wordId) { mutableStateOf("") }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Column(Modifier.padding(12.dp)) {
-            Text(word.headword, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(word.headword, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                RecognitionDots(store.progress[wordId]?.recognition ?: 0)
+            }
             Text(word.pronunciation)
             val sense = senses.getOrNull(senseIndex)
             Text(sense?.let { "[${it.pos}] ${it.definitionEn}" } ?: "English definition pending")
-            if (senses.size > 1) TextButton(onClick = { senseIndex = (senseIndex + 1) % senses.size }) { Text("释义 ${senseIndex + 1}/${senses.size} · 切换") }
-            if (chinese.isNotBlank()) {
-                TextButton(onClick = { showChinese = !showChinese }) { Text(if (showChinese) "隐藏中文" else "显示中文") }
-                if (showChinese) Text(chinese)
-            }
+            if (senses.size > 1) TextButton(onClick = { senseIndex = (senseIndex + 1) % senses.size }) { Text("${senseIndex + 1}/${senses.size} ›") }
+            if (showChinese) Text(chinese.ifBlank { repository.contentDb.getChineseGloss(wordId) })
             Row {
                 TextButton(onClick = {
                     store = if (store.progress[wordId]?.state == ProgressState.FAMILIAR) repository.relearn(wordId) else repository.markMastered(wordId)
                 }) { Text(if (store.progress[wordId]?.state == ProgressState.FAMILIAR) "重学" else "熟") }
-                TextButton(onClick = { store = repository.toggleFavorite(wordId) }) { Text(if (wordId in store.favorites) "取消收藏" else "收藏") }
+                ChineseIcon(showChinese) { showChinese = !showChinese }
+                FavoriteIcon(wordId in store.favorites) { store = repository.toggleFavorite(wordId) }
+                IconButton(onClick = { showQuestion = !showQuestion }) { Icon(painterResource(R.drawable.ic_question), contentDescription = "提问") }
             }
+            if (showQuestion) {
             OutlinedTextField(value = question, onValueChange = { question = it.take(2000) }, label = { Text("关于这个词的问题") })
             TextButton(enabled = question.isNotBlank(), onClick = {
                 clipboard.setText(androidx.compose.ui.text.AnnotatedString("Word: ${word.headword}\nDefinition: ${sense?.definitionEn.orEmpty()}\nQuestion: $question"))
-            }) { Text("复制问题和释义 · AI 尚未连接") }
+            }) { Text("复制") }
+            }
         }
     }
 }
@@ -253,12 +265,6 @@ fun SpellingTab(repository: StudyDeskRepository) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "英文释义提示：",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
                         text = "[${senses[0].pos}] ${senses[0].definitionEn}",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
@@ -283,9 +289,9 @@ fun SpellingTab(repository: StudyDeskRepository) {
 
             checkResult?.let { passed ->
                 if (passed) {
-                    Text("✓ 拼写正确！", color = Color(0xFF27AE60), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("✓ 正确", color = Color(0xFF27AE60), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 } else {
-                    Text("✗ 拼写错误，正确答案是: ${word.headword}", color = Color(0xFFC0392B), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("✗ ${word.headword}", color = Color(0xFFC0392B), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -361,7 +367,7 @@ fun FavoritesAndMasteredTab(repository: StudyDeskRepository) {
             val favIds = store.favorites
             if (favIds.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("暂无收藏词汇。学习时点击五角星可收藏难词。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("暂无收藏", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -374,10 +380,8 @@ fun FavoritesAndMasteredTab(repository: StudyDeskRepository) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(word?.headword ?: wid, fontWeight = FontWeight.Bold)
-                                TextButton(onClick = {
+                                FavoriteIcon(selected = true) {
                                     store = repository.toggleFavorite(wid)
-                                }) {
-                                    Text("取消收藏")
                                 }
                             }
                         }
@@ -394,15 +398,13 @@ fun DifficultyTab(repository: StudyDeskRepository) {
     var level by remember { mutableStateOf(-1) }
     Column(Modifier.padding(12.dp)) {
         ScrollableTabRow(selectedTabIndex = level + 1) {
-            listOf("重难点", "陌生 0", "初识 1", "渐熟 2", "长期 3").forEachIndexed { i, title ->
+            listOf("重难点", "陌生", "初识", "渐熟", "长期").forEachIndexed { i, title ->
                 Tab(selected = level == i - 1, onClick = { level = i - 1 }, text = { Text(title) })
             }
         }
         val ids = store.progress.filter { (_, p) -> p.state != ProgressState.FAMILIAR && if (level == -1) p.difficult else p.recognition == level }
-        Text("${ids.size} 词 · 根据你的学习记录分类")
+        Text("${ids.size} 词")
         LazyColumn { items(ids.keys.toList()) { id ->
-            val p = ids.getValue(id)
-            Text("认知 ${p.recognition}/3 · 隔天遗忘 ${p.delayedLapses} 次 · 下次 ${p.due.orEmpty()}", fontSize = 12.sp)
             WordBrowserCard(repository, id, repository.contentDb.getChineseGloss(id))
         } }
     }

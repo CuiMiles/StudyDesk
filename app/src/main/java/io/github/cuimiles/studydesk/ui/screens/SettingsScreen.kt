@@ -61,6 +61,7 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             .verticalScroll(rememberScrollState())
     ) {
         Text("设置与数据", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        UsageGuide()
         Spacer(modifier = Modifier.height(16.dp))
 
         // Daily Limit Setting
@@ -125,26 +126,6 @@ fun SettingsScreen(repository: StudyDeskRepository) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // AI QA Model Config
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("AI 问答接口扩展", fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    "默认不连接远程大模型，所有词典及五步数据完全离线。手机端已预留标准 Provider 扩展接口，未来可配置自建 HTTPS 安全后端。",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Danger Zone: Clear Data
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -175,7 +156,7 @@ fun SettingsScreen(repository: StudyDeskRepository) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("关于 StudyDesk", fontWeight = FontWeight.SemiBold)
                 Spacer(modifier = Modifier.height(6.dp))
-                Text("版本: v0.2.0", fontSize = 13.sp)
+                Text("版本: v0.2.1", fontSize = 13.sp)
                 Text("词典: Open English Wordnet 2025 (CC BY 4.0)；补充例句/频次: Princeton WordNet 3.0", fontSize = 13.sp)
                 Text("词表来源: IELTS Word List (3611 条用户授权词表)", fontSize = 13.sp)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -341,7 +322,6 @@ private fun ReviewSettings(repository: StudyDeskRepository) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text("记忆与复习", fontWeight = FontWeight.Bold)
-            Text("认识 +1，不认识 −1，认知值达到3后转为长期复习。间隔设置用于此后的回答。", fontSize = 12.sp)
             OutlinedTextField(first, { first = it }, label = { Text("认知1：间隔天数（1–7）") })
             OutlinedTextField(second, { second = it }, label = { Text("认知2：间隔天数（1–30）") })
             OutlinedTextField(long, { long = it }, label = { Text("认知3：长期天数（30–365）") })
@@ -349,7 +329,6 @@ private fun ReviewSettings(repository: StudyDeskRepository) {
                 Switch(adaptive, { adaptive = it })
                 Text("根据遗忘记录缩短复习间隔")
             }
-            Text("跨日遗忘累计两次进入重难点，三次跨日成功后移出。每个用户的记录存于本机私有数据库。", fontSize = 12.sp)
             Button(onClick = {
                 try {
                     repository.setReviewSettings(first.toInt(), second.toInt(), long.toInt(), adaptive)

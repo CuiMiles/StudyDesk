@@ -54,3 +54,9 @@ python3 tools/batch_generation.py --dry-run --limit 0
 - 示例覆盖报告：17497条例句记录，2446个词头至少两条，7458个词义有正数历史标注频次。474条新增原句来自 Princeton WordNet 3.0。
 - Android TTS真实出声、不同厂商英语离线语音包及音量仍需真机验收；无语音包时明确提示安装，不伪装为播放成功。
 - 设备/系统用户私有数据库隔离学习记录；未新增云端账号或自动同步服务。
+
+## 0.2.1 界面精简验证
+
+- Android/Robolectric 6 项测试通过；更新 Compose 回归测试，验证首次隐藏释义、收藏星切换、判断后揭示、中文图标切换和下一词计分。
+- `assembleDebug`、`lintDebug` 通过。学习算法及词库未修改。
+- 手机触控、字体缩放和图标视觉效果仍需 Android Studio / 真机验收。

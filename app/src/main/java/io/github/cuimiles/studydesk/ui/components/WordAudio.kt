@@ -1,5 +1,7 @@
 package io.github.cuimiles.studydesk.ui.components
 
+import io.github.cuimiles.studydesk.R
+import androidx.compose.ui.res.painterResource
 import android.content.Intent
 import android.speech.tts.TextToSpeech
 import androidx.compose.material3.*
@@ -43,7 +45,9 @@ fun WordAudio(word: String, attemptId: String, alreadyPlayed: () -> Boolean, onA
     LaunchedEffect(ready, attemptId) {
         if (ready && !alreadyPlayed() && speak()) onAutoPlayed()
     }
-    TextButton(enabled = ready, onClick = { speak() }) { Text(if (ready) "▶ 读音" else "语音准备中") }
+    IconButton(enabled = ready, onClick = { speak() }) {
+        Icon(painterResource(R.drawable.ic_speaker), contentDescription = if (ready) "播放读音" else "语音准备中")
+    }
     if (error.isNotBlank()) {
         Text(error, color = MaterialTheme.colorScheme.error)
         TextButton(onClick = {
