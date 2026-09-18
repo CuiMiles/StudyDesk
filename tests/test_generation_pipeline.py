@@ -17,6 +17,7 @@ class GenerationPipelineTest(unittest.TestCase):
         self.db = Path(self.tmp.name) / 'content.db'
         shutil.copyfile(str(ROOT / 'app/src/main/assets/content.db'), str(self.db))
         self.tips = ROOT / 'sources/5steps_tips.txt'
+        self.initial_count = sqlite3.connect(str(self.db)).execute('select count(*) from generation').fetchone()[0]
     def tearDown(self):
         self.tmp.cleanup()
     def test_default_run_is_offline(self):
@@ -31,7 +32,7 @@ class GenerationPipelineTest(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 run_batch(self.tips, self.db, dry_run=False, api_key_env='', limit=2)
         self.assertEqual(request.call_count, 1)
-        self.assertEqual(sqlite3.connect(str(self.db)).execute('select count(*) from generation').fetchone()[0], 0)
+        self.assertEqual(sqlite3.connect(str(self.db)).execute('select count(*) from generation').fetchone()[0], self.initial_count)
     def test_generated_content_commits_and_resumes(self):
         class Response:
             def __enter__(inner): return inner

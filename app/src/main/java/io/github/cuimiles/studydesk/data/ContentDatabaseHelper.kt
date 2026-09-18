@@ -66,11 +66,32 @@ class ContentDatabaseHelper(private val context: Context) {
         return list
     }
 
+    fun getChapterStats(): Map<Int, Pair<Int, Int>> {
+        val db = ensureDatabase()
+        val cursor = db.rawQuery(
+            "SELECT b.chapter, count(g.word_id), count(b.word_id) " +
+                    "FROM book_entry b " +
+                    "LEFT JOIN generation g ON b.word_id = g.word_id AND g.status = 'generated' " +
+                    "GROUP BY b.chapter ORDER BY b.chapter ASC",
+            null
+        )
+        val map = mutableMapOf<Int, Pair<Int, Int>>()
+        cursor.use {
+            while (it.moveToNext()) {
+                map[it.getInt(0)] = Pair(it.getInt(1), it.getInt(2))
+            }
+        }
+        return map
+    }
+
     fun getEntriesByChapter(chapter: Int): List<BookEntry> {
         val db = ensureDatabase()
         val cursor = db.rawQuery(
-            "SELECT book_id, position, word_id, chapter, source_line, original, gloss_zh, source_pronunciation " +
-                    "FROM book_entry WHERE chapter = ? ORDER BY position ASC",
+            "SELECT b.book_id, b.position, b.word_id, b.chapter, b.source_line, b.original, b.gloss_zh, b.source_pronunciation " +
+                    "FROM book_entry b " +
+                    "LEFT JOIN generation g ON b.word_id = g.word_id AND g.status = 'generated' " +
+                    "WHERE b.chapter = ? " +
+                    "ORDER BY (CASE WHEN g.word_id IS NOT NULL THEN 0 ELSE 1 END) ASC, b.position ASC",
             arrayOf(chapter.toString())
         )
         val list = mutableListOf<BookEntry>()
@@ -95,7 +116,13 @@ class ContentDatabaseHelper(private val context: Context) {
 
     fun getAllWordIds(): List<String> {
         val db = ensureDatabase()
-        val cursor = db.rawQuery("SELECT word_id FROM book_entry GROUP BY word_id ORDER BY MIN(position) ASC", null)
+        val cursor = db.rawQuery(
+            "SELECT b.word_id FROM book_entry b " +
+                    "LEFT JOIN generation g ON b.word_id = g.word_id AND g.status = 'generated' " +
+                    "GROUP BY b.word_id " +
+                    "ORDER BY (CASE WHEN g.word_id IS NOT NULL THEN 0 ELSE 1 END) ASC, MIN(b.position) ASC",
+            null
+        )
         val list = mutableListOf<String>()
         cursor.use {
             while (it.moveToNext()) {
@@ -190,8 +217,10 @@ class ContentDatabaseHelper(private val context: Context) {
         val db = ensureDatabase()
         val normalized = query.trim().lowercase()
         val cursor = db.rawQuery(
-            "SELECT id, headword, lookup, status, pronunciation FROM word " +
-                    "WHERE lookup LIKE ? OR headword LIKE ? LIMIT ?",
+            "SELECT w.id, w.headword, w.lookup, w.status, w.pronunciation FROM word w " +
+                    "LEFT JOIN generation g ON w.id = g.word_id AND g.status = 'generated' " +
+                    "WHERE w.lookup LIKE ? OR w.headword LIKE ? " +
+                    "ORDER BY (CASE WHEN g.word_id IS NOT NULL THEN 0 ELSE 1 END) ASC, w.headword ASC LIMIT ?",
             arrayOf("$normalized%", "$normalized%", limit.toString())
         )
         val list = mutableListOf<Word>()

@@ -6,28 +6,55 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class FiveStepPayload(
     @SerialName("concrete_image")
-    val concreteImage: String,
+    val concreteImage: String = "",
 
     @SerialName("synonyms_comparison")
-    val synonymsComparison: String,
+    val synonymsComparison: String = "",
 
     @SerialName("register_and_contexts")
-    val registerAndContexts: String,
+    val registerAndContexts: String = "",
 
     @SerialName("collocations")
-    val collocations: String,
+    val collocations: String = "",
 
     @SerialName("associations")
-    val associations: String,
+    val associations: String = "",
 
     @SerialName("integrated_example")
-    val integratedExample: String,
+    val integratedExample: String = "",
 
     @SerialName("integrated_example_mapping")
     val integratedExampleMapping: String = "",
 
     @SerialName("chinese_explanation")
-    val chineseExplanation: String = ""
+    val chineseExplanation: String = "",
+
+    @SerialName("concrete_image_zh")
+    val concreteImageZh: String = "",
+
+    @SerialName("synonyms_comparison_zh")
+    val synonymsComparisonZh: String = "",
+
+    @SerialName("register_and_contexts_zh")
+    val registerAndContextsZh: String = "",
+
+    @SerialName("collocations_zh")
+    val collocationsZh: String = "",
+
+    @SerialName("associations_zh")
+    val associationsZh: String = "",
+
+    @SerialName("integrated_example_zh")
+    val integratedExampleZh: String = "",
+
+    @SerialName("integrated_example_mapping_zh")
+    val integratedExampleMappingZh: String = "",
+
+    @SerialName("en_version")
+    val enVersion: String = "",
+
+    @SerialName("zh_version")
+    val zhVersion: String = ""
 )
 
 data class ValidationResult(

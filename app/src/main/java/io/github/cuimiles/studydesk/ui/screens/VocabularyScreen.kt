@@ -106,6 +106,8 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
         } else {
             if (showChinese) Text(repository.contentDb.getChineseGloss(word.id).ifBlank { "暂无中文提示" }, modifier = Modifier.padding(vertical = 8.dp))
             val generation = remember(attempt.entryId) { repository.contentDb.getGeneration(attempt.entryId) }
+            val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation.payloadJson) }.getOrNull() }
+            var payloadRendered = false
             senses.forEachIndexed { index, sense ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Column(Modifier.padding(12.dp)) {
@@ -114,26 +116,51 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                             HighlightedExample(example, forms)
                         }
                         if (sense.synonyms.isNotEmpty()) Text("Synonyms: ${sense.synonyms.joinToString()}")
-                        if (generation?.senseId == sense.id) {
-                            val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation.payloadJson) }.getOrNull() }
+                        if (generation?.senseId == sense.id || (!payloadRendered && senses.none { it.id == generation?.senseId })) {
+                            payloadRendered = true
                             var expanded by remember(attempt.id, sense.id) { mutableStateOf(false) }
                             if (payload != null) {
-                                TextButton(onClick = { expanded = !expanded }) { Text("五步解析") }
+                                TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起五步解析" else "五步解析") }
                                 if (expanded) {
-                                    StepItem("1. 画面锚定", payload.concreteImage)
-                                    StepItem("2. 语义场对比", payload.synonymsComparison)
-                                    StepItem("3. 语域", payload.registerAndContexts)
-                                    StepItem("4. 语义韵", payload.collocations)
-                                    StepItem("5. 联想网络", payload.associations)
-                                    StepItem("综合示例", payload.integratedExample)
-                                    StepItem("说明", payload.integratedExampleMapping)
+                                    StepItem("1. 画面锚定", payload.concreteImage, payload.concreteImageZh)
+                                    StepItem("2. 语义场对比", payload.synonymsComparison, payload.synonymsComparisonZh)
+                                    StepItem("3. 语域", payload.registerAndContexts, payload.registerAndContextsZh)
+                                    StepItem("4. 语义韵", payload.collocations, payload.collocationsZh)
+                                    StepItem("5. 联想网络", payload.associations, payload.associationsZh)
+                                    StepItem("综合示例", payload.integratedExample, payload.integratedExampleZh)
+                                    StepItem("说明", payload.integratedExampleMapping, payload.integratedExampleMappingZh)
+                                    if (payload.chineseExplanation.isNotBlank() && payload.concreteImageZh.isBlank()) {
+                                        StepItem("中文解析", "", payload.chineseExplanation)
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            if (senses.isEmpty()) Text("英文释义待补全")
+            if (senses.isEmpty()) {
+                Text("英文释义待补全")
+                if (payload != null) {
+                    Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Column(Modifier.padding(12.dp)) {
+                            var expanded by remember(attempt.id) { mutableStateOf(false) }
+                            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起五步解析" else "五步解析") }
+                            if (expanded) {
+                                StepItem("1. 画面锚定", payload.concreteImage, payload.concreteImageZh)
+                                StepItem("2. 语义场对比", payload.synonymsComparison, payload.synonymsComparisonZh)
+                                StepItem("3. 语域", payload.registerAndContexts, payload.registerAndContextsZh)
+                                StepItem("4. 语义韵", payload.collocations, payload.collocationsZh)
+                                StepItem("5. 联想网络", payload.associations, payload.associationsZh)
+                                StepItem("综合示例", payload.integratedExample, payload.integratedExampleZh)
+                                StepItem("说明", payload.integratedExampleMapping, payload.integratedExampleMappingZh)
+                                if (payload.chineseExplanation.isNotBlank() && payload.concreteImageZh.isBlank()) {
+                                    StepItem("中文解析", "", payload.chineseExplanation)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
         }
       }
@@ -166,16 +193,66 @@ fun HighlightedExample(text: String, forms: List<String>) {
 }
 
 @Composable
-fun StepItem(title: String, content: String) {
+fun StepItem(
+    title: String,
+    enContent: String,
+    zhContent: String = ""
+) {
+    var showZh by remember(title, enContent, zhContent) { mutableStateOf(false) }
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(text = title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-        Text(text = content, fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (zhContent.isNotBlank()) {
+                TextButton(
+                    onClick = { showZh = !showZh },
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        text = if (showZh) "隐藏中文" else "显示中文",
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+        if (enContent.isNotBlank()) {
+            Text(
+                text = enContent,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        if (showZh && zhContent.isNotBlank()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.padding(top = 4.dp).fillMaxWidth()
+            ) {
+                Text(
+                    text = zhContent,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(6.dp)
+                )
+            }
+        }
     }
 }
 
 @Composable
 fun ChaptersTab(repository: StudyDeskRepository) {
     val chapters = remember { repository.contentDb.getChapters() }
+    val chapterStats = remember { repository.contentDb.getChapterStats() }
     var selectedChapter by remember { mutableStateOf<Int?>(null) }
     var query by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -186,10 +263,20 @@ fun ChaptersTab(repository: StudyDeskRepository) {
         } else if (selectedChapter == null) {
             Text("IELTS Word List · ${chapters.size} 单元", fontWeight = FontWeight.Bold)
             LazyColumn { items(chapters) { chapter ->
-                TextButton(onClick = { selectedChapter = chapter }) { Text("Word List $chapter") }
+                val stats = chapterStats[chapter]
+                val genCount = stats?.first ?: 0
+                val totalCount = stats?.second ?: 0
+                val tag = when {
+                    genCount == totalCount && totalCount > 0 -> " ✓ 全部已AI解析"
+                    genCount > 0 -> " ($genCount/$totalCount 词已解析)"
+                    else -> " ($totalCount 词)"
+                }
+                TextButton(onClick = { selectedChapter = chapter }) { Text("Word List $chapter$tag") }
             } }
         } else {
-            TextButton(onClick = { selectedChapter = null }) { Text("返回目录 · Word List $selectedChapter") }
+            val stats = chapterStats[selectedChapter]
+            val genInfo = stats?.let { " (${it.first}/${it.second} 词已解析)" } ?: ""
+            TextButton(onClick = { selectedChapter = null }) { Text("返回目录 · Word List $selectedChapter$genInfo") }
             val entries = remember(selectedChapter) { repository.contentDb.getEntriesByChapter(selectedChapter!!) }
             LazyColumn { items(entries, key = { it.position }) { entry ->
                 WordBrowserCard(repository, entry.wordId, entry.glossZh)
@@ -202,6 +289,7 @@ fun ChaptersTab(repository: StudyDeskRepository) {
 fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: String) {
     val word = remember(wordId) { repository.contentDb.getWord(wordId) } ?: return
     val senses = remember(wordId) { repository.contentDb.getSenses(wordId) }
+    val generation = remember(wordId) { repository.contentDb.getGeneration(wordId) }
     var showChinese by remember(wordId) { mutableStateOf(false) }
     var senseIndex by remember(wordId) { mutableStateOf(0) }
     var store by remember(wordId) { mutableStateOf(repository.getVocabularyStore()) }
@@ -212,6 +300,19 @@ fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: St
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(word.headword, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                if (generation != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "AI五步解析",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 RecognitionDots(store.progress[wordId]?.recognition ?: 0)
             }
             Text(word.pronunciation)
@@ -219,6 +320,23 @@ fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: St
             Text(sense?.let { "[${it.pos}] ${it.definitionEn}" } ?: "English definition pending")
             if (senses.size > 1) TextButton(onClick = { senseIndex = (senseIndex + 1) % senses.size }) { Text("${senseIndex + 1}/${senses.size} ›") }
             if (showChinese) Text(chinese.ifBlank { repository.contentDb.getChineseGloss(wordId) })
+            val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation?.payloadJson ?: "") }.getOrNull() }
+            var expandedFiveStep by remember(wordId) { mutableStateOf(false) }
+            if (payload != null) {
+                TextButton(onClick = { expandedFiveStep = !expandedFiveStep }) { Text(if (expandedFiveStep) "收起五步解析" else "五步解析") }
+                if (expandedFiveStep) {
+                    StepItem("1. 画面锚定", payload.concreteImage, payload.concreteImageZh)
+                    StepItem("2. 语义场对比", payload.synonymsComparison, payload.synonymsComparisonZh)
+                    StepItem("3. 语域", payload.registerAndContexts, payload.registerAndContextsZh)
+                    StepItem("4. 语义韵", payload.collocations, payload.collocationsZh)
+                    StepItem("5. 联想网络", payload.associations, payload.associationsZh)
+                    StepItem("综合示例", payload.integratedExample, payload.integratedExampleZh)
+                    StepItem("说明", payload.integratedExampleMapping, payload.integratedExampleMappingZh)
+                    if (payload.chineseExplanation.isNotBlank() && payload.concreteImageZh.isBlank()) {
+                        StepItem("中文解析", "", payload.chineseExplanation)
+                    }
+                }
+            }
             Row {
                 TextButton(onClick = {
                     store = if (store.progress[wordId]?.state == ProgressState.FAMILIAR) repository.relearn(wordId) else repository.markMastered(wordId)
@@ -240,7 +358,13 @@ fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: St
 @Composable
 fun SpellingTab(repository: StudyDeskRepository) {
     val store = remember { repository.getVocabularyStore() }
-    val allIds = remember { repository.contentDb.getAllWordIds().filter { store.progress[it]?.state != ProgressState.FAMILIAR && repository.contentDb.getSenses(it).isNotEmpty() }.shuffled().take(50) }
+    val allIds = remember {
+        val eligible = repository.contentDb.getAllWordIds().filter {
+            store.progress[it]?.state != ProgressState.FAMILIAR && repository.contentDb.getSenses(it).isNotEmpty()
+        }
+        val withGen = eligible.filter { repository.contentDb.getGeneration(it) != null }
+        (if (withGen.size >= 50) withGen else eligible).shuffled().take(50)
+    }
     var currentIndex by remember { mutableStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var checkResult by remember { mutableStateOf<Boolean?>(null) }
