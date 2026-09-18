@@ -23,7 +23,10 @@ import androidx.compose.ui.unit.sp
 import io.github.cuimiles.studydesk.data.StudyDeskRepository
 
 @Composable
-fun SettingsScreen(repository: StudyDeskRepository) {
+fun SettingsScreen(
+    repository: StudyDeskRepository,
+    onBack: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     var dailyLimit by remember { mutableStateOf(repository.getVocabularyStore().settings.dailyNewLimit) }
 
@@ -57,9 +60,24 @@ fun SettingsScreen(repository: StudyDeskRepository) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        if (onBack != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Text("←", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("返回课表", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            }
+        }
         Text("设置与数据", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         UsageGuide()
         Spacer(modifier = Modifier.height(16.dp))

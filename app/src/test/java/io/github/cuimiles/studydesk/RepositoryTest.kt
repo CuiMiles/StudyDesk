@@ -33,7 +33,7 @@ class RepositoryTest {
         assertTrue(repo.getVocabularyStore().progress.isEmpty())
         repo.restoreFullBackup(exported)
         assertEquals(before, repo.getVocabularyStore())
-        assertEquals(1, repo.getCourses().size)
+        assertEquals(io.github.cuimiles.studydesk.core.timetable.TimetableEngine.defaultCuiMinghaoCourses().size, repo.getCourses().size)
     }
     @Test fun answerCardAndAutoplaySurviveRestartWithoutDoubleScoring() {
         val context = RuntimeEnvironment.getApplication()

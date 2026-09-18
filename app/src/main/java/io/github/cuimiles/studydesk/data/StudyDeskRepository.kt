@@ -19,14 +19,37 @@ class StudyDeskRepository(context: Context) {
     val userDb = UserDatabaseHelper(context)
 
     init {
-        // First-run initialization of default badminton course
-        val initialized = userDb.getSetting("badminton_initialized")
-        if (initialized != "true") {
+        // First-run initialization of Cui Minghao courses (2026-fall)
+        val cuiInit = userDb.getSetting("cuiminghao_courses_v1")
+        if (cuiInit != "true") {
             val existing = userDb.getAllCourses()
-            if (!existing.any { TimetableEngine.isBadmintonCourse(it) }) {
-                userDb.saveCourse(TimetableEngine.defaultBadmintonCourse())
+            val courses = TimetableEngine.defaultCuiMinghaoCourses()
+            userDb.transaction {
+                for (course in courses) {
+                    if (!existing.any { it.id == course.id }) {
+                        userDb.saveCourse(course)
+                    }
+                }
+                userDb.setSetting("cuiminghao_courses_v1", "true")
             }
-            userDb.setSetting("badminton_initialized", "true")
+        }
+    }
+
+    fun loadCuiMinghaoCourses(replaceExisting: Boolean = false) {
+        val courses = TimetableEngine.defaultCuiMinghaoCourses()
+        userDb.transaction {
+            if (replaceExisting) {
+                userDb.clearAndSetCourses(courses)
+                userDb.clearAndSetAdjustments(emptyList())
+            } else {
+                val existing = userDb.getAllCourses()
+                for (c in courses) {
+                    if (!existing.any { it.id == c.id }) {
+                        userDb.saveCourse(c)
+                    }
+                }
+            }
+            userDb.setSetting("cuiminghao_courses_v1", "true")
         }
     }
 

@@ -34,10 +34,31 @@ enum class VocabSubTab(val title: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VocabularyScreen(repository: StudyDeskRepository) {
+fun VocabularyScreen(
+    repository: StudyDeskRepository,
+    onBack: (() -> Unit)? = null
+) {
     var selectedTab by remember { mutableStateOf(VocabSubTab.DAILY) }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+    ) {
+        if (onBack != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Text("←", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+                Text("英语词汇工作台", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            }
+        }
         ScrollableTabRow(selectedTabIndex = selectedTab.ordinal) {
             VocabSubTab.values().forEach { tab ->
                 Tab(

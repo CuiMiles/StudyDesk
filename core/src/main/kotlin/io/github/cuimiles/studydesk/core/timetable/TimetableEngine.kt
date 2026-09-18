@@ -31,6 +31,198 @@ object TimetableEngine {
         )
     }
 
+    fun defaultCuiMinghaoCourses(): List<Course> {
+        return listOf(
+            Course(
+                id = "c-material-mon-1-2",
+                name = "材料科学进展（实践）",
+                className = "1班",
+                teachers = listOf("刘峰", "丁向东", "黄平", "刘刚", "马飞", "宋江选", "王红洁", "张伟"),
+                room = "5-2W201",
+                weekday = 1,
+                sections = listOf(1, 2),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-marx-mon-5-6",
+                name = "马克思主义与当代科技",
+                className = "18班",
+                teachers = listOf("吴鹏"),
+                room = "5-4043",
+                weekday = 1,
+                sections = listOf(5, 6),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-japanese-mon-7-8",
+                name = "日语二外",
+                className = "1班",
+                teachers = listOf("曹红荃"),
+                room = "5-2062",
+                weekday = 1,
+                sections = listOf(7, 8),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-ethics-mon-9-10",
+                name = "工程伦理（二）",
+                className = "2班",
+                teachers = listOf("金莉", "李永东", "邱岩", "王迪", "王萍"),
+                room = "5-1W101",
+                weekday = 1,
+                sections = listOf(9, 10),
+                weeks = (1..11).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-ethics-mon-11",
+                name = "工程伦理（二）",
+                className = "2班",
+                teachers = listOf("金莉", "李永东", "邱岩", "王迪", "王萍"),
+                room = "5-1W101",
+                weekday = 1,
+                sections = listOf(11),
+                weeks = (1..10).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-distrib-tue-3-4",
+                name = "分布式系统原理与应用",
+                className = "1班",
+                teachers = listOf("田丽华"),
+                room = "5-1E103",
+                weekday = 2,
+                sections = listOf(3, 4),
+                weeks = (9..16).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-distrib-tue-7-8",
+                name = "分布式系统原理与应用",
+                className = "1班",
+                teachers = listOf("田丽华"),
+                room = "5-1E103",
+                weekday = 2,
+                sections = listOf(7, 8),
+                weeks = (9..16).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-japanese-thu-3-4",
+                name = "日语二外",
+                className = "1班",
+                teachers = listOf("曹红荃"),
+                room = "5-2062",
+                weekday = 4,
+                sections = listOf(3, 4),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-dl-thu-3-4",
+                name = "深度学习及应用（校企）（实践）",
+                className = "1班",
+                teachers = listOf("田智强"),
+                room = "5-2W201",
+                weekday = 4,
+                sections = listOf(3, 4),
+                weeks = (9..16).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-ai-thu-3",
+                name = "人工智能与创新（AI通识-线上）",
+                className = "1班",
+                teachers = listOf("吴琳"),
+                room = "雨课堂 线上考试",
+                weekday = 4,
+                sections = listOf(3),
+                weeks = listOf(18),
+                note = ""
+            ),
+            Course(
+                id = "c-dl-thu-7-8",
+                name = "深度学习及应用（校企）（实践）",
+                className = "1班",
+                teachers = listOf("田智强"),
+                room = "5-2W201",
+                weekday = 4,
+                sections = listOf(7, 8),
+                weeks = (9..16).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-db-fri-1-2",
+                name = "数据库系统原理与应用",
+                className = "1班",
+                teachers = listOf("刘帅"),
+                room = "5-2W201",
+                weekday = 5,
+                sections = listOf(1, 2),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-db-frontier-fri-3-4",
+                name = "数据库前沿技术（校企）",
+                className = "1班",
+                teachers = listOf("白秀秀"),
+                room = "5-1E103",
+                weekday = 5,
+                sections = listOf(3, 4),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-ai-fri-3",
+                name = "人工智能与创新（AI通识-线上）",
+                className = "1班",
+                teachers = listOf("吴琳"),
+                room = "雨课堂 线上考试",
+                weekday = 5,
+                sections = listOf(3),
+                weeks = listOf(18),
+                note = ""
+            ),
+            Course(
+                id = "c-db-fri-5-6",
+                name = "数据库系统原理与应用",
+                className = "1班",
+                teachers = listOf("刘帅"),
+                room = "5-2W201",
+                weekday = 5,
+                sections = listOf(5, 6),
+                weeks = (2..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-db-frontier-fri-7-8",
+                name = "数据库前沿技术（校企）",
+                className = "1班",
+                teachers = listOf("白秀秀"),
+                room = "5-1E103",
+                weekday = 5,
+                sections = listOf(7, 8),
+                weeks = (1..8).toList(),
+                note = ""
+            ),
+            Course(
+                id = "c-db-sat-5-6",
+                name = "数据库系统原理与应用",
+                className = "1班",
+                teachers = listOf("刘帅"),
+                room = "5-2W201",
+                weekday = 6,
+                sections = listOf(5, 6),
+                weeks = listOf(7),
+                note = ""
+            )
+        )
+    }
+
     fun isBadmintonCourse(course: Course): Boolean {
         val normName = normalize(course.name)
         val normSecs = course.sections.toSet().sorted()

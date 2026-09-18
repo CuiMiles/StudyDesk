@@ -3,16 +3,13 @@ package io.github.cuimiles.studydesk
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import io.github.cuimiles.studydesk.data.StudyDeskRepository
 import io.github.cuimiles.studydesk.ui.navigation.Screen
-import io.github.cuimiles.studydesk.ui.screens.DeskScreen
 import io.github.cuimiles.studydesk.ui.screens.SettingsScreen
 import io.github.cuimiles.studydesk.ui.screens.TimetableScreen
 import io.github.cuimiles.studydesk.ui.screens.VocabularyScreen
@@ -34,39 +31,28 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             StudyDeskTheme {
-                var currentScreen by rememberSaveable { mutableStateOf(Screen.DESK) }
+                // 默认一进主页就展示课表功能，彻底移除底部导航栏占用空间
+                var currentScreen by rememberSaveable { mutableStateOf(Screen.TIMETABLE) }
 
-                androidx.activity.compose.BackHandler(enabled = currentScreen != Screen.DESK) { currentScreen = Screen.DESK }
+                androidx.activity.compose.BackHandler(enabled = currentScreen != Screen.TIMETABLE) {
+                    currentScreen = Screen.TIMETABLE
+                }
 
-                Scaffold(
-                    bottomBar = {
-                        NavigationBar {
-                            Screen.values().forEach { screen ->
-                                NavigationBarItem(
-                                    selected = currentScreen == screen,
-                                    onClick = { currentScreen = screen },
-                                    label = { Text(screen.title, fontSize = 12.sp, fontWeight = if (currentScreen == screen) FontWeight.Bold else FontWeight.Normal) },
-                                    icon = {
-                                        val iconText = when (screen) {
-                                            Screen.DESK -> "🏠"
-                                            Screen.TIMETABLE -> "📅"
-                                            Screen.VOCABULARY -> "📖"
-                                            Screen.SETTINGS -> "⚙️"
-                                        }
-                                        Text(iconText, fontSize = 18.sp)
-                                    }
-                                )
-                            }
-                        }
-                    }
-                ) { innerPadding ->
-                    Surface(modifier = Modifier.padding(innerPadding)) {
-                        when (currentScreen) {
-                            Screen.DESK -> DeskScreen(repository = repository, onNavigate = { currentScreen = it })
-                            Screen.TIMETABLE -> TimetableScreen(repository = repository)
-                            Screen.VOCABULARY -> VocabularyScreen(repository = repository)
-                            Screen.SETTINGS -> SettingsScreen(repository = repository)
-                        }
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    when (currentScreen) {
+                        Screen.TIMETABLE, Screen.DESK -> TimetableScreen(
+                            repository = repository,
+                            onNavigateToVocabulary = { currentScreen = Screen.VOCABULARY },
+                            onNavigateToSettings = { currentScreen = Screen.SETTINGS }
+                        )
+                        Screen.VOCABULARY -> VocabularyScreen(
+                            repository = repository,
+                            onBack = { currentScreen = Screen.TIMETABLE }
+                        )
+                        Screen.SETTINGS -> SettingsScreen(
+                            repository = repository,
+                            onBack = { currentScreen = Screen.TIMETABLE }
+                        )
                     }
                 }
             }
