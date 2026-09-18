@@ -106,8 +106,8 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
         } else {
             if (showChinese) Text(repository.contentDb.getChineseGloss(word.id).ifBlank { "暂无中文提示" }, modifier = Modifier.padding(vertical = 8.dp))
             val generation = remember(attempt.entryId) { repository.contentDb.getGeneration(attempt.entryId) }
-            val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation.payloadJson) }.getOrNull() }
-            var payloadRendered = false
+            val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation?.payloadJson ?: "") }.getOrNull() }
+
             senses.forEachIndexed { index, sense ->
                 Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Column(Modifier.padding(12.dp)) {
@@ -116,50 +116,13 @@ fun DailyStudyTab(repository: StudyDeskRepository) {
                             HighlightedExample(example, forms)
                         }
                         if (sense.synonyms.isNotEmpty()) Text("Synonyms: ${sense.synonyms.joinToString()}")
-                        if (generation?.senseId == sense.id || (!payloadRendered && senses.none { it.id == generation?.senseId })) {
-                            payloadRendered = true
-                            var expanded by remember(attempt.id, sense.id) { mutableStateOf(false) }
-                            if (payload != null) {
-                                TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起五步解析" else "五步解析") }
-                                if (expanded) {
-                                    StepItem("1. 画面锚定", payload.concreteImage, payload.concreteImageZh)
-                                    StepItem("2. 语义场对比", payload.synonymsComparison, payload.synonymsComparisonZh)
-                                    StepItem("3. 语域", payload.registerAndContexts, payload.registerAndContextsZh)
-                                    StepItem("4. 语义韵", payload.collocations, payload.collocationsZh)
-                                    StepItem("5. 联想网络", payload.associations, payload.associationsZh)
-                                    StepItem("综合示例", payload.integratedExample, payload.integratedExampleZh)
-                                    StepItem("说明", payload.integratedExampleMapping, payload.integratedExampleMappingZh)
-                                    if (payload.chineseExplanation.isNotBlank() && payload.concreteImageZh.isBlank()) {
-                                        StepItem("中文解析", "", payload.chineseExplanation)
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
-            if (senses.isEmpty()) {
-                Text("英文释义待补全")
-                if (payload != null) {
-                    Card(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            var expanded by remember(attempt.id) { mutableStateOf(false) }
-                            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起五步解析" else "五步解析") }
-                            if (expanded) {
-                                StepItem("1. 画面锚定", payload.concreteImage, payload.concreteImageZh)
-                                StepItem("2. 语义场对比", payload.synonymsComparison, payload.synonymsComparisonZh)
-                                StepItem("3. 语域", payload.registerAndContexts, payload.registerAndContextsZh)
-                                StepItem("4. 语义韵", payload.collocations, payload.collocationsZh)
-                                StepItem("5. 联想网络", payload.associations, payload.associationsZh)
-                                StepItem("综合示例", payload.integratedExample, payload.integratedExampleZh)
-                                StepItem("说明", payload.integratedExampleMapping, payload.integratedExampleMappingZh)
-                                if (payload.chineseExplanation.isNotBlank() && payload.concreteImageZh.isBlank()) {
-                                    StepItem("中文解析", "", payload.chineseExplanation)
-                                }
-                            }
-                        }
-                    }
-                }
+            if (senses.isEmpty()) Text("英文释义待补全")
+
+            if (payload != null) {
+                FiveStepSection(payload)
             }
 
         }
@@ -198,55 +161,12 @@ fun StepItem(
     enContent: String,
     zhContent: String = ""
 ) {
-    var showZh by remember(title, enContent, zhContent) { mutableStateOf(false) }
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.primary
-            )
-            if (zhContent.isNotBlank()) {
-                TextButton(
-                    onClick = { showZh = !showZh },
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                ) {
-                    Text(
-                        text = if (showZh) "隐藏中文" else "显示中文",
-                        fontSize = 11.sp
-                    )
-                }
-            }
-        }
-        if (enContent.isNotBlank()) {
-            Text(
-                text = enContent,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        if (showZh && zhContent.isNotBlank()) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.padding(top = 4.dp).fillMaxWidth()
-            ) {
-                Text(
-                    text = zhContent,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(6.dp)
-                )
-            }
-        }
-    }
+    StepItemCard(
+        stepNum = "•",
+        stepTitle = title,
+        enContent = enContent,
+        zhContent = zhContent
+    )
 }
 
 @Composable
@@ -321,21 +241,8 @@ fun WordBrowserCard(repository: StudyDeskRepository, wordId: String, chinese: St
             if (senses.size > 1) TextButton(onClick = { senseIndex = (senseIndex + 1) % senses.size }) { Text("${senseIndex + 1}/${senses.size} ›") }
             if (showChinese) Text(chinese.ifBlank { repository.contentDb.getChineseGloss(wordId) })
             val payload = remember(generation) { runCatching { Json { ignoreUnknownKeys = true }.decodeFromString<FiveStepPayload>(generation?.payloadJson ?: "") }.getOrNull() }
-            var expandedFiveStep by remember(wordId) { mutableStateOf(false) }
             if (payload != null) {
-                TextButton(onClick = { expandedFiveStep = !expandedFiveStep }) { Text(if (expandedFiveStep) "收起五步解析" else "五步解析") }
-                if (expandedFiveStep) {
-                    StepItem("1. 画面锚定", payload.concreteImage, payload.concreteImageZh)
-                    StepItem("2. 语义场对比", payload.synonymsComparison, payload.synonymsComparisonZh)
-                    StepItem("3. 语域", payload.registerAndContexts, payload.registerAndContextsZh)
-                    StepItem("4. 语义韵", payload.collocations, payload.collocationsZh)
-                    StepItem("5. 联想网络", payload.associations, payload.associationsZh)
-                    StepItem("综合示例", payload.integratedExample, payload.integratedExampleZh)
-                    StepItem("说明", payload.integratedExampleMapping, payload.integratedExampleMappingZh)
-                    if (payload.chineseExplanation.isNotBlank() && payload.concreteImageZh.isBlank()) {
-                        StepItem("中文解析", "", payload.chineseExplanation)
-                    }
-                }
+                FiveStepSection(payload)
             }
             Row {
                 TextButton(onClick = {
