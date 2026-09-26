@@ -17,6 +17,8 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - run: python3 -m unittest discover -s tests -v
+      - run: python3 -m unittest discover -s webapp/tests -v
+        working-directory: lan-server
       - run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:

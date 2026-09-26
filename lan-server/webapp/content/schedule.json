@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 1,
+  "semesterId": "2026-fall",
+  "courses": [
+    {
+      "id": "c-material",
+      "name": "材料科学进展（实践）",
+      "className": "1班",
+      "teachers": [
+        "刘峰",
+        "丁向东",
+        "黄平",
+        "刘刚",
+        "马飞",
+        "宋江选",
+        "王红洁",
+        "张伟"
+      ],
+      "room": "5-2W201",
+      "weekday": 1,
+      "sections": [
+        1,
+        2
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-marx",
+      "name": "马克思主义与当代科技",
+      "className": "18班",
+      "teachers": [
+        "吴鹏"
+      ],
+      "room": "5-4043",
+      "weekday": 1,
+      "sections": [
+        5,
+        6
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-japanese-mon",
+      "name": "日语二外",
+      "className": "1班",
+      "teachers": [
+        "曹红荃"
+      ],
+      "room": "5-2062",
+      "weekday": 1,
+      "sections": [
+        7,
+        8
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-ethics-9-10",
+      "name": "工程伦理（二）",
+      "className": "2班",
+      "teachers": [
+        "金莉",
+        "李永东",
+        "邱岩",
+        "王迪",
+        "王萍"
+      ],
+      "room": "5-1W101",
+      "weekday": 1,
+      "sections": [
+        9,
+        10
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-ethics-11",
+      "name": "工程伦理（二）",
+      "className": "2班",
+      "teachers": [
+        "金莉",
+        "李永东",
+        "邱岩",
+        "王迪",
+        "王萍"
+      ],
+      "room": "5-1W101",
+      "weekday": 1,
+      "sections": [
+        11
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-distrib-3-4",
+      "name": "分布式系统原理与应用",
+      "className": "1班",
+      "teachers": [
+        "田丽华"
+      ],
+      "room": "5-1E103",
+      "weekday": 2,
+      "sections": [
+        3,
+        4
+      ],
+      "weeks": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-distrib-7-8",
+      "name": "分布式系统原理与应用",
+      "className": "1班",
+      "teachers": [
+        "田丽华"
+      ],
+      "room": "5-1E103",
+      "weekday": 2,
+      "sections": [
+        7,
+        8
+      ],
+      "weeks": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-japanese-thu",
+      "name": "日语二外",
+      "className": "1班",
+      "teachers": [
+        "曹红荃"
+      ],
+      "room": "5-2062",
+      "weekday": 4,
+      "sections": [
+        3,
+        4
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-dl-3-4",
+      "name": "深度学习及应用（校企）（实践）",
+      "className": "1班",
+      "teachers": [
+        "田智强"
+      ],
+      "room": "5-2W201",
+      "weekday": 4,
+      "sections": [
+        3,
+        4
+      ],
+      "weeks": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-ai-thu",
+      "name": "人工智能与创新（AI通识-线上）",
+      "className": "1班",
+      "teachers": [
+        "吴琳"
+      ],
+      "room": "雨课堂 线上考试",
+      "weekday": 4,
+      "sections": [
+        3
+      ],
+      "weeks": [
+        18
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-dl-7-8",
+      "name": "深度学习及应用（校企）（实践）",
+      "className": "1班",
+      "teachers": [
+        "田智强"
+      ],
+      "room": "5-2W201",
+      "weekday": 4,
+      "sections": [
+        7,
+        8
+      ],
+      "weeks": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-db-fri-1-2",
+      "name": "数据库系统原理与应用",
+      "className": "1班",
+      "teachers": [
+        "刘帅"
+      ],
+      "room": "5-2W201",
+      "weekday": 5,
+      "sections": [
+        1,
+        2
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-db-frontier-3-4",
+      "name": "数据库前沿技术（校企）",
+      "className": "1班",
+      "teachers": [
+        "白秀秀"
+      ],
+      "room": "5-1E103",
+      "weekday": 5,
+      "sections": [
+        3,
+        4
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-ai-fri",
+      "name": "人工智能与创新（AI通识-线上）",
+      "className": "1班",
+      "teachers": [
+        "吴琳"
+      ],
+      "room": "雨课堂 线上考试",
+      "weekday": 5,
+      "sections": [
+        3
+      ],
+      "weeks": [
+        18
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-db-fri-5-6",
+      "name": "数据库系统原理与应用",
+      "className": "1班",
+      "teachers": [
+        "刘帅"
+      ],
+      "room": "5-2W201",
+      "weekday": 5,
+      "sections": [
+        5,
+        6
+      ],
+      "weeks": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-db-frontier-7-8",
+      "name": "数据库前沿技术（校企）",
+      "className": "1班",
+      "teachers": [
+        "白秀秀"
+      ],
+      "room": "5-1E103",
+      "weekday": 5,
+      "sections": [
+        7,
+        8
+      ],
+      "weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "note": ""
+    },
+    {
+      "id": "c-db-sun-5-6",
+      "name": "数据库系统原理与应用",
+      "className": "1班",
+      "teachers": [
+        "刘帅"
+      ],
+      "room": "5-2W201",
+      "weekday": 7,
+      "sections": [
+        5,
+        6
+      ],
+      "weeks": [
+        7
+      ],
+      "note": ""
+    }
+  ],
+  "adjustments": []
+}

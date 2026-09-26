@@ -2,8 +2,9 @@ plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.ko
 android {
     namespace = "io.github.cuimiles.studydesk"
     compileSdk = 36
-    defaultConfig { applicationId = "io.github.cuimiles.studydesk"; minSdk = 26; targetSdk = 36; versionCode = 3; versionName = "0.2.1" }
+    defaultConfig { applicationId = "io.github.cuimiles.studydesk"; minSdk = 26; targetSdk = 36; versionCode = 4; versionName = "1.0.0-lan" }
     buildFeatures { compose = true }
+    androidResources { ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:CVS:thumbs.db:picasa.ini:*~:*.db-shm:*.db-wal" }
     testOptions { unitTests.isIncludeAndroidResources = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

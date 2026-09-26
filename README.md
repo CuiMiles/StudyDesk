@@ -1,8 +1,44 @@
-# StudyDesk · 学习工作台
+# StudyDesk · 局域网同步学习工作台
+
+**1.0.0-lan** 将手机 App、手机网页和电脑网页连接到同一个个人学习空间：课表、背词、论文英语中译英、AI 点评、通用句式与错题积累，全部使用服务器上的学习记录。
+
+Android 客户端使用 **Kotlin 原生连接设置 + WebView + 原生 TTS / 系统文件选择器**。默认启动 `LanActivity`；现有离线 Compose 模块保留在源码中，但不再是新版默认入口。新版不在 APK 中存储 Gemini 密钥，也不维护一份与网页分离的学习进度。
+
+## Android Studio 打开与运行
+
+1. 克隆 `https://github.com/CuiMiles/StudyDesk.git`，在 Android Studio 打开仓库根目录。
+2. 使用 JDK 17，安装 Android SDK 36，等待 Gradle 同步，然后运行 `app`。
+3. 首次启动输入服务器地址，例如 **`http://10.184.17.163:8765`**。手机必须与服务器在可互通的局域网。
+4. 如果服务运行在 Android Studio 所在电脑上，Android 模拟器输入 `http://10.0.2.2:8765`。连接远程 Linux 服务器则仍使用服务器真实的局域网地址。
+5. 顶部“连接设置”可以更换地址；学习页面与浏览器实时使用同一后端。原生英语语音需要设备已安装的 TTS 引擎和英语语音。
+
+WebView 页面需要运行 App/模拟器才能预览；它不属于 Compose `@Preview` 静态预览。当前服务器已部署的网站也可以直接在电脑浏览器查看。
+
+## 一并提供的服务端
+
+完整后端、网页、静态题库和词典切片在 [lan-server/](lan-server/README.md)，Python 3.11+，无第三方运行时依赖。进入 `lan-server`，将 `.env.example` 复制为 `.env` 并填入自己的 Key，然后：
+
+```bash
+python3 -m webapp.server --host 0.0.0.0 --port 8765
+```
+
+多 Key 按“**同一强模型遍历所有 Key → 下一等级模型**”调度；调用次数持久化、按太平洋时间换日。Gemini 额度按项目共享，同项目 Key 不会增加上游配额。系统提示词与参数可以编辑，参考 [完整部署/教学/配额说明](lan-server/webapp/README.md)。
+
+学习记录和真实 Key 不在仓库中。论文 PDF 可用下载脚本获取；40 道练习已经离线打包。服务器默认读取现有 `app/src/main/assets/content.db` 中的预制词汇教学内容。旧版 App 的离线学习记录不会自动合并到新版服务器，迁移前请保留旧备份。
+
+```bash
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+```
+
+APK：`app/build/outputs/apk/debug/app-debug.apk`。CI 也会生成可下载的 Debug APK。
+
+---
+
+## 历史 0.2 离线版本说明
 
 面向学生的原生 Android 学习工作台：西安交通大学课表、IELTS Word List 英文沉浸背词与五步深度教学解析。
 
-原生 Kotlin + Jetpack Compose 开发（非 WebView 套壳），离线优先、隐私保护。
+以下描述对应保留在仓库中的历史原生 Kotlin + Jetpack Compose 模块，旧版离线行为与新版局域网同步入口不同。
 
 ## 模块结构
 

@@ -12,3 +12,7 @@ __pycache__/
 *.pyc
 tools/work/
 *.log
+*.db-shm
+*.db-wal
+lan-server/webapp/runtime/
+lan-server/webapp/tests/artifacts/

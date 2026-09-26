@@ -1,0 +1,32 @@
+[
+  {
+    "id": "resnet",
+    "bytes": 603123,
+    "sha256": "51b5de45eb0b558b19c3affe49503cff50cb170a32de602983d6e2ec286942a7",
+    "source": "https://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf"
+  },
+  {
+    "id": "senet",
+    "bytes": 2329943,
+    "sha256": "2acc7faca912aa54cb4759f933c40df02efcf77f2b3cfe2f4162e38d170f277e",
+    "source": "https://openaccess.thecvf.com/content_cvpr_2018/papers/Hu_Squeeze-and-Excitation_Networks_CVPR_2018_paper.pdf"
+  },
+  {
+    "id": "simsiam",
+    "bytes": 483157,
+    "sha256": "89e52731a2da8644199c86b789ac74c581ec993338d3ad65cdf681d32c835242",
+    "source": "https://openaccess.thecvf.com/content/CVPR2021/papers/Chen_Exploring_Simple_Siamese_Representation_Learning_CVPR_2021_paper.pdf"
+  },
+  {
+    "id": "mae",
+    "bytes": 1737112,
+    "sha256": "81bbc64bc197a64362927010470e46601a0f0311aa4c2014a355dfff0e5b3b6c",
+    "source": "https://openaccess.thecvf.com/content/CVPR2022/papers/He_Masked_Autoencoders_Are_Scalable_Vision_Learners_CVPR_2022_paper.pdf"
+  },
+  {
+    "id": "meanflow",
+    "bytes": 5728284,
+    "sha256": "c0b560a099c17966bbb0bb293f6c8d295f4a5a5f47b5698b4f26bd2d0f793caa",
+    "source": "https://proceedings.neurips.cc/paper_files/paper/2025/file/6d13e085b79d454da5910e4ca82a3d9d-Paper-Conference.pdf"
+  }
+]

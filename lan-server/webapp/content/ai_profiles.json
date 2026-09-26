@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "priorityRationale": "按本任务的语义诊断、教学反馈和复杂指令能力排序：完整 Flash 系列优先，然后 Flash Lite，最后 Gemma。属于可调整的任务策略，不是宣称存在覆盖这些版本的统一实测能力榜。只使用实际探测成功且在正配额表内的模型；不通过 latest 别名重复计算配额。",
+  "modelOrder": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemma-4-31b-it", "gemma-4-26b-a4b-it"],
+  "review": {"temperature": 0.3, "gemini3Temperature": 1.0, "maxOutputTokens": 8192, "timeout": 70, "thinkingLevel": "high", "systemFile": "review_system.txt"},
+  "ask": {"temperature": 0.5, "gemini3Temperature": 1.0, "maxOutputTokens": 4096, "timeout": 55, "thinkingLevel": "medium", "systemFile": "tutor_system.txt"},
+  "probe": {"temperature": 1.0, "gemini3Temperature": 1.0, "maxOutputTokens": 1024, "timeout": 22},
+  "teaching": ["先忠实表达，再语法，再简洁与学术语体", "每次聚焦最多四处可操作的改进", "承认合理同义表达，参考译文不是唯一标准", "提炼能替换方法名和模型名复用的句型", "引用学生原句后逐项解释，组织一次针对性重写", "不编造事实、文献、显著性或最优性能"]
+}

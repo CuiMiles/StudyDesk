@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-09-26",
+  "project": "d2English",
+  "tier": "free",
+  "description": "Model-level Gemini API rate limits from the user's dashboard.",
+  "units": {
+    "rpm": "requests per minute",
+    "tpm": "tokens per minute",
+    "rpd": "requests per day"
+  },
+  "model_limits": [
+    {"name": "Gemini 3.5 Flash", "category": "文本输出模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 3.6 Flash", "category": "文本输出模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 3.7 Flash", "category": "文本输出模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 3.8 Flash", "category": "文本输出模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 3.5 Flash Lite", "category": "文本输出模型", "rpm": 15, "tpm": 250000, "rpd": 500},
+    {"name": "Gemini 3.1 Flash Lite", "category": "文本输出模型", "rpm": 15, "tpm": 250000, "rpd": 500},
+    {"name": "Gemma 4 31B", "category": "其他模型", "rpm": 30, "tpm": 16000, "rpd": 14400},
+    {"name": "Antigravity", "category": "代理", "rpm": 60, "tpm": 100000, "rpd": 100},
+    {"name": "Gemini 2.5 Flash", "category": "文本输出模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 2.5 Flash Lite", "category": "文本输出模型", "rpm": 10, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 2.5 Flash TTS", "category": "多模态生成模型", "rpm": 3, "tpm": 10000, "rpd": 10},
+    {"name": "Gemini 3 Flash", "category": "文本输出模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemini 3.1 Flash TTS", "category": "多模态生成模型", "rpm": 3, "tpm": 10000, "rpd": 10},
+    {"name": "Gemini 3.5 Transcribe", "category": "Live API", "rpm": 3, "tpm": 10000, "rpd": 25},
+    {"name": "Gemini 3.8 Flash Lite TTS", "category": "多模态生成模型", "rpm": 3, "tpm": 10000, "rpd": 10},
+    {"name": "Gemini 3.8 Flash TTS", "category": "多模态生成模型", "rpm": 3, "tpm": 10000, "rpd": 10},
+    {"name": "Gemini Embedding 1", "category": "其他模型", "rpm": 100, "tpm": 30000, "rpd": 1000},
+    {"name": "Gemini Embedding 2", "category": "其他模型", "rpm": 100, "tpm": 30000, "rpd": 1000},
+    {"name": "Gemini Robotics ER 2 Preview", "category": "其他模型", "rpm": 5, "tpm": 250000, "rpd": 20},
+    {"name": "Gemma 4 26B", "category": "其他模型", "rpm": 30, "tpm": 16000, "rpd": 14400},
+    {"name": "Gemini 2.5 Flash Native Audio Dialog", "category": "Live API", "rpm": null, "tpm": 1000000, "rpd": null, "unlimited": ["rpm", "rpd"]},
+    {"name": "Gemini 3 Flash Live", "category": "Live API", "rpm": null, "tpm": 65000, "rpd": null, "unlimited": ["rpm", "rpd"]},
+    {"name": "Gemini 3.5 Live Translate", "category": "Live API", "rpm": null, "tpm": 20000, "rpd": null, "unlimited": ["rpm", "rpd"]},
+    {"name": "Gemini 3.5 Transcribe Live", "category": "Live API", "rpm": null, "tpm": 20000, "rpd": null, "unlimited": ["rpm", "rpd"]},
+    {"name": "Gemini 3.8 Live", "category": "Live API", "rpm": null, "tpm": 65000, "rpd": null, "unlimited": ["rpm", "rpd"]},
+    {"name": "Gemini 3.8 Live Extended Thinking", "category": "Live API", "rpm": null, "tpm": 65000, "rpd": null, "unlimited": ["rpm", "rpd"]}
+  ],
+  "notes": [
+    "Only models with at least one positive or unlimited model-level quota are listed; models whose RPM, TPM, and RPD limits were all zero are omitted.",
+    "A null quota is unlimited only when that metric appears in the row's unlimited array.",
+    "These are dashboard limits, not remaining quota. Limits and model access can change; verify the live dashboard or API before use.",
+    "Names are copied from dashboard labels and are not guaranteed to be exact API model IDs."
+  ]
+}
