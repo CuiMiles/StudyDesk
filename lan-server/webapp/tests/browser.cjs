@@ -34,6 +34,25 @@ fs.mkdirSync(artifacts, {recursive:true});
       board.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[at(100)],bubbles:true}));
     });
     await phone.waitForFunction(()=>document.querySelector('#schedule-week')?.value==='2');
+    const geometry=await phone.evaluate(()=>({
+      top:document.querySelector('.week-board').getBoundingClientRect().top,
+      cardHeight:document.querySelector('.week-course:not(.offweek)').getBoundingClientRect().height,
+      width:document.querySelector('.week-board').scrollWidth-document.querySelector('.week-board').clientWidth,
+    }));
+    assert.equal(await phone.locator('.week-period').count(),11,'Each period has its own time label');
+    assert(geometry.top<150,'Timetable begins immediately below the compact heading');
+    assert(geometry.cardHeight>100,'A two-period course spans the time axis');
+    assert.equal(geometry.width,0,'Seven date columns fit the mobile viewport');
+    assert(await phone.locator('.week-course.offweek').count()>0,'Other-week courses are shown as faint context');
+    await phone.locator('.week-day').nth(2).click();
+    assert.match(await phone.locator('.schedule-heading h1').textContent(),/周三/,'Day selection updates heading');
+    await phone.locator('.week-day').nth(6).click();
+    await phone.locator('.week-course:not(.offweek)').first().click();
+    assert.match(await phone.locator('#modal .modal-head').textContent(),/课程详情/,'Current-week course opens details');
+    await phone.locator('#modal [data-act="close-modal"]').click();
+    await phone.locator('.week-course.offweek').first().click();
+    assert.match(await phone.locator('#modal .modal-head').textContent(),/其他周课程/,'Faint course opens its regular-week details');
+    await phone.locator('#modal [data-act="close-modal"]').click();
     await phone.screenshot({path:path.join(artifacts,'mobile-week.png'),fullPage:true});
     await visit(phone,'home');await visit(pc,'home');
     await phone.screenshot({path:path.join(artifacts,'mobile-home.png'),fullPage:true});

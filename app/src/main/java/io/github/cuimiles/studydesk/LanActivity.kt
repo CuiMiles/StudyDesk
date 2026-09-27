@@ -191,6 +191,13 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         dialog.show()
     }
     inner class NativeBridge {
+        @JavascriptInterface fun setScheduleTheme(schedule: Boolean) {
+            runOnUiThread {
+                if (!trusted(web.url.orEmpty())) return@runOnUiThread
+                window.statusBarColor = if (schedule) Color.rgb(233, 234, 244) else Color.rgb(246, 247, 242)
+                window.navigationBarColor = if (schedule) Color.rgb(191, 208, 231) else Color.rgb(252, 253, 249)
+            }
+        }
         @JavascriptInterface fun speak(value: String) {
             runOnUiThread {
                 if (!trusted(web.url.orEmpty()) || value.length > 300) return@runOnUiThread

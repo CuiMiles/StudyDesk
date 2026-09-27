@@ -18,3 +18,72 @@
 .week-toolbar{justify-content:space-between;margin-bottom:10px}.week-board{background:#fff;border:1px solid var(--line);border-radius:15px;overflow:hidden;touch-action:pan-y}.week-grid{display:grid;grid-template-columns:43px repeat(7,minmax(0,1fr));width:100%}.week-corner,.week-day,.week-period,.week-cell{min-width:0;border-right:1px solid #edf0e8;border-bottom:1px solid #edf0e8}.week-corner{display:flex;align-items:center;justify-content:center;font-size:10px;color:#85947f}.week-day{text-align:center;padding:8px 2px;background:#fbfcf8}.week-day strong{display:block;font-size:12px;font-weight:650}.week-day small{display:block;font-size:10px;color:#8a9784}.week-day em{font-size:9px;font-style:normal;color:#9b6146}.week-day.today{background:#eaf2e2;color:#3e6948}.week-period{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:9px 2px;background:#fbfcf8;color:#72816e}.week-period strong{font-size:11px}.week-period small{font-size:9px}.week-cell{min-height:90px;padding:4px;display:flex;flex-direction:column;gap:3px}.week-cell.today{background:#f8fbf3}.week-course{position:relative;display:block;min-width:0;width:100%;text-align:left;padding:7px 6px;border-radius:8px;background:var(--course-bg);color:var(--course-fg);overflow-wrap:anywhere;line-height:1.4}.week-course strong{display:block;font-size:11px;line-height:1.4;font-weight:650}.week-course small{display:block;margin-top:3px;font-size:9px;opacity:.82;overflow-wrap:anywhere}.conflict-dot{position:absolute;top:2px;right:3px;border-radius:50%;font-size:9px;font-weight:700;color:#ae4832}.week-grid>*:nth-child(8n){border-right:0}.week-grid>*:nth-last-child(-n+8){border-bottom:0}
 .prompt-list{display:grid;gap:7px;margin:10px 0}.prompt-pick{display:block;text-align:left;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;width:100%}.prompt-pick.active{border-color:#6b9476;background:#f3f8ed}.prompt-pick strong{display:block;font-size:12px}.prompt-pick small{display:block;font-size:10px;line-height:1.45;margin-top:3px}.prompt-template{font-size:12px;line-height:1.7;background:#f6f8f2;padding:11px;border-radius:9px;white-space:pre-wrap;overflow-wrap:anywhere}.prompt-manage-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}.prompt-manage-row strong{font-size:12px}.prompt-manage-row .btn{min-height:30px}.prompt-manage-row:last-child{border:0}.minimal-mode .source-line,.minimal-mode .task-number,.minimal-mode .week-course small{display:none}
 @media(max-width:760px){.main{padding:0 16px 88px}.schedule-page .main{padding-left:9px;padding-right:9px}.topbar{height:49px;margin-bottom:11px;padding-top:env(safe-area-inset-top)}.breadcrumb:before{display:none}.breadcrumb b{font-size:14px}.page-head h1{font-size:19px}.page-head p{font-size:10px}.week-grid{grid-template-columns:27px repeat(7,minmax(0,1fr))}.week-day{padding:5px 0}.week-day strong{font-size:10px}.week-day small{font-size:9px}.week-period{padding:5px 0}.week-period strong{font-size:9px}.week-period small{display:none}.week-cell{min-height:72px;padding:2px;gap:2px}.week-course{padding:4px 2px;border-radius:5px;line-height:1.15}.week-course strong{font-size:10px;line-height:1.2}.week-course small{font-size:8px;line-height:1.15}.week-toolbar{margin-bottom:9px}.schedule-week select{max-width:110px}.quick-actions{gap:6px}.quick-actions .btn{font-size:10px;min-height:35px;padding:7px 9px}.stat-card{padding:10px 12px}.stat-card strong{font-size:19px}.stats-grid{margin-bottom:13px}.mobile-nav{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}.mobile-nav button{min-height:44px}.page-head{margin-bottom:11px}}
+
+/* Reference timetable: one compact heading, seven date columns, and an eleven-period time axis. */
+.schedule-page .app-shell{background:linear-gradient(180deg,#e9eaf4 0%,#dce3f1 38%,#bdd0e6 100%);min-height:100dvh}
+.schedule-page .main{max-width:none;padding-top:11px;padding-bottom:94px}
+.schedule-page .topbar{display:none}
+.schedule-screen{width:100%;max-width:1260px;margin:auto}
+.schedule-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-height:77px;padding:0 3px 10px}
+.schedule-heading-main{min-width:0}
+.schedule-heading h1{display:flex;gap:10px;align-items:baseline;color:#171a25;font-size:29px;font-weight:660;line-height:1.16;letter-spacing:-.8px;white-space:nowrap}
+.schedule-week-select{position:relative;display:inline-flex;align-items:center}
+.schedule-week-select select{appearance:none;-webkit-appearance:none;border:0;background:transparent;box-shadow:none;padding:0 2px 0 0;border-radius:0;color:inherit;font:inherit;letter-spacing:inherit;cursor:pointer;width:3.5em;min-height:0}
+.schedule-week-select select:focus-visible{outline:2px solid #384966;outline-offset:2px}
+.schedule-subdate{font-size:16px;line-height:1.25;margin-top:4px;color:#333a4c;font-weight:480}
+.schedule-head-actions{display:flex;align-items:center;gap:4px;padding-top:2px;flex-shrink:0}
+.schedule-head-actions .icon-btn{min-width:39px;min-height:39px;color:#1d2434;border-radius:11px}
+.schedule-head-actions .icon-btn:hover{background:#ffffff75}
+.schedule-head-actions .icon-btn .i{width:21px;height:21px}
+.week-board{--period-height:64px;background:transparent;border:0;border-radius:0;overflow:hidden;touch-action:pan-y}
+.week-grid{display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));grid-template-rows:51px repeat(11,var(--period-height));width:100%;isolation:isolate}
+.week-corner,.week-day,.week-period{position:relative;z-index:2;border:0;background:transparent}
+.week-corner{grid-column:1;grid-row:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;color:#202433;font-size:17px;font-weight:600;line-height:1.05}
+.week-corner span{font-size:13px;margin-top:3px}
+.week-day{grid-row:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:0 1px;color:#7e879b;text-align:center;min-width:0;line-height:1.15}
+.week-day span{display:block;font-size:13px;font-weight:550;white-space:nowrap}
+.week-day strong{display:flex;align-items:center;justify-content:center;width:31px;height:31px;margin:3px auto 0;border-radius:9px;color:#929bad;font-size:16px;font-weight:560;line-height:1}
+.week-day.selected{background:transparent;color:#171a25}
+.week-day.selected strong{background:#30323a;color:#fff}
+.week-day.today:not(.selected) span{color:#535f7b}
+.week-day em{position:absolute;right:2px;bottom:3px;font-size:9px;font-style:normal;color:#ad6670}
+.week-lane{grid-row:2/span 11;z-index:0;border-left:1px solid #fff5;background:repeating-linear-gradient(to bottom,transparent 0 calc(var(--period-height) - 1px),#f8faff41 calc(var(--period-height) - 1px) var(--period-height))}
+.week-lane.selected{background-color:#ffffff13}
+.week-period{grid-column:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px 0 0;color:#181c2a}
+.week-period strong{font-size:19px;line-height:1.05;font-weight:570}
+.week-period small{display:block;font-size:10px;line-height:1.55;color:#666f83;text-align:center;margin-top:4px}
+.week-course{position:relative;z-index:1;justify-self:start;align-self:stretch;display:flex;flex-direction:column;gap:5px;min-width:0;width:calc(var(--slot-width) - 3px);margin:2px 0 2px calc(var(--slot-left) + 1.5px);padding:6px 5px;border-radius:7px;border:2px solid #ffffffc9;background:linear-gradient(165deg,var(--course-start),var(--course-end));box-shadow:0 1px 3px #5266822c;text-align:left;color:#fff;line-height:1.2;overflow:hidden;overflow-wrap:anywhere;word-break:break-all}
+.week-course strong{display:block;font-size:15px;line-height:1.22;font-weight:650;color:inherit}
+.week-course .course-room{display:block;font-size:12px;line-height:1.25;opacity:1;color:inherit;margin:0}
+.minimal-mode .week-course .course-room{display:block}
+.week-course.offweek{opacity:.5}
+.week-course.offweek:hover,.week-course.offweek:focus-visible{opacity:.85}
+.offweek-badge{display:block;align-self:flex-start;margin-top:auto;padding:2px 3px;border-radius:3px;background:#ffffff26;color:#fff;font-size:9px;line-height:1.1;word-break:keep-all;white-space:nowrap}
+.conflict-dot{z-index:1;top:2px;right:2px;background:#fff;color:#9b3d43;font-size:10px;width:14px;height:14px;text-align:center;line-height:14px}
+@media(max-width:760px){
+  .schedule-page .main{padding:7px 5px 92px}
+  .schedule-heading{min-height:74px;padding:0 4px 8px}
+  .schedule-heading h1{font-size:26px;gap:7px}
+  .schedule-subdate{font-size:15px;margin-top:3px}
+  .schedule-head-actions{gap:0}
+  .schedule-head-actions .icon-btn{min-width:34px;min-height:34px;padding:6px}
+  .schedule-head-actions .icon-btn .i{width:19px;height:19px}
+  .week-board{--period-height:clamp(54px,7.4dvh,72px)}
+  .week-grid{grid-template-columns:35px repeat(7,minmax(0,1fr));grid-template-rows:49px repeat(11,var(--period-height))}
+  .week-corner{font-size:15px}
+  .week-corner span{font-size:11px}
+  .week-day span{font-size:12px}
+  .week-day strong{width:28px;height:28px;font-size:14px;margin-top:4px;border-radius:8px}
+  .week-period{padding-top:5px}
+  .week-period strong{font-size:17px}
+  .week-period small{display:block;font-size:9px;line-height:1.35;margin-top:3px}
+  .week-course{gap:4px;padding:5px 3px;border-radius:6px}
+  .week-course strong{font-size:12px;line-height:1.22}
+  .week-course .course-room{font-size:10px;line-height:1.2}
+  .offweek-badge{font-size:8px}
+  .schedule-page .mobile-nav{background:#bfd0e7ed;border:0;box-shadow:0 -3px 12px #7389ae17;justify-content:space-around;padding:8px 5px calc(10px + env(safe-area-inset-bottom))}
+  .schedule-page .mobile-nav button{min-width:0;flex:1;min-height:41px;padding:0 2px;background:none;color:#78869d;font-size:14px;font-weight:500}
+  .schedule-page .mobile-nav button.active{background:none;color:#161c2b;font-weight:680}
+  .schedule-page .mobile-nav .i{display:none}
+}
+@media(max-width:360px){.schedule-heading h1{font-size:23px}.schedule-head-actions .icon-btn{min-width:31px}.week-grid{grid-template-columns:33px repeat(7,minmax(0,1fr))}.week-course strong{font-size:10px}.week-course .course-room{font-size:9px}}

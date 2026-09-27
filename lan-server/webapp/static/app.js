@@ -36,7 +36,7 @@ const labels = {schedule:'课表',home:'今日',write:'写作',words:'背词',no
 const navs = [['schedule','calendar','课表'],['home','home','今日'],['write','pen','写作'],['words','book','背词'],['notebook','notes','积累']];
 const levels = {starter:'基础句子',core:'进阶表达',paragraph:'短段落'};
 const categories = ['研究动机','方法介绍','实验结果','实验分析','消融分析','段落衔接'];
-let S = {page:'schedule', routeId:'',dashboard:null,catalog:[],exercise:null,word:null,wordRevealed:false,wordZh:false,wordMode:'study',wordQuery:'',wordFilter:'',wordLevel:'',wordOffset:0,notebook:[],noteFilter:'all',noteQuery:'',week:0,schedule:null,version:0,online:true,dirty:false,draftSaving:null,draftConflict:false,level:'',category:'',renderId:0,settings:null,profile:null,wordPrompts:null};
+let S = {page:'schedule', routeId:'',dashboard:null,catalog:[],exercise:null,word:null,wordRevealed:false,wordZh:false,wordMode:'study',wordQuery:'',wordFilter:'',wordLevel:'',wordOffset:0,notebook:[],noteFilter:'all',noteQuery:'',week:0,selectedWeekday:null,schedule:null,version:0,online:true,dirty:false,draftSaving:null,draftConflict:false,level:'',category:'',renderId:0,settings:null,profile:null,wordPrompts:null};
 const pollers = new Map();
 let toastTimer, draftTimer, searchTimer;
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -77,6 +77,8 @@ async function go(page,id=''){
 async function render(){
   const rid=++S.renderId;
   const parts=location.hash.slice(2).split('/');S.page=labels[parts[0]]?parts[0]:'schedule';document.body.classList.toggle('schedule-page',S.page==='schedule');S.routeId=decodeURIComponent(parts[1]||'');
+  $('meta[name="theme-color"]')?.setAttribute('content',S.page==='schedule'?'#e9eaf4':'#f6f7f2');
+  window.StudyDeskNative?.setScheduleTheme?.(S.page==='schedule');
   $$('.nav [data-nav],.mobile-nav [data-nav]').forEach(e=>{const active=e.dataset.nav===S.page;e.classList.toggle('active',active);e.setAttribute('aria-current',active?'page':'false');$('.nav-dot',e)?.classList.toggle('hidden',!active);});
   $('#page-crumb').textContent=labels[S.page];
   setView('<div class="skeleton"><span class="spinner" style="display:inline-block"></span><p>正在接续你的学习…</p></div>');
@@ -239,25 +241,81 @@ function reviewNote(id){const n=S.notebook.find(n=>n.id===id);S.reviewNote=n;mod
 function revealNote(){const n=S.reviewNote;$('#note-answer').innerHTML=`<div class="reference">${esc(n.title)}</div><p class="help-text">${esc(n.reason||n.pitfall||n.example||'')}</p><div class="form-actions">${btn('还需要再看','note-rate',{id:'unknown',cls:'secondary'})}${btn('这次记住了','note-rate',{id:'known',icon:'check'})}</div>`;}
 async function updateNote(id,body){const n=S.notebook.find(n=>n.id===id);const updated=await api('/api/notebook/'+id,{...body,revision:n.revision});S.notebook=S.notebook.map(x=>x.id===id?updated:x);renderNotebook();}
 
-const palette=[['#e9efdf','#637b4e'],['#e4edf4','#597892'],['#f3e8d5','#8c7346'],['#ece7f3','#827091'],['#f5e5e8','#9a6f7a'],['#e1efea','#557e6c']];
-const courseColor=name=>palette[[...name].reduce((n,c)=>(n*31+c.charCodeAt(0))%10000,0)%palette.length];
+const schedulePalette=[
+  ['#ec799b','#e26e93'],['#a6bced','#98afe1'],['#65c9c8','#53bcbc'],
+  ['#e99178','#e48670'],['#73b9e7','#64aee0'],['#b7ace8','#a99bda'],
+  ['#659bc8','#598dbc'],['#e9a3bb','#dc91af']
+];
+function courseColor(name){
+  const named=[['材料科学',0],['分布式系统',1],['日语二外',2],['数据库前沿',3],['马克思主义',4],['深度学习',5],['工程伦理',6],['数据库系统',7],['体育',5]];
+  const match=named.find(([part])=>name.includes(part));
+  return schedulePalette[match?match[1]:[...name].reduce((n,c)=>(n*31+c.charCodeAt(0))%10000,0)%schedulePalette.length];
+}
+function sectionRuns(sections){
+  const runs=[];
+  for(const number of sections){
+    if(runs.length&&runs.at(-1).at(-1)===number-1)runs.at(-1).push(number);
+    else runs.push([number]);
+  }
+  return runs;
+}
+function placeScheduleCourses(entries){
+  for(const day of [...new Set(entries.map(e=>e.date))]){
+    const sorted=entries.filter(e=>e.date===day).sort((a,b)=>a.start-b.start||b.end-a.end);
+    let group=[],groupEnd=0;
+    const finish=()=>{
+      if(!group.length)return;
+      const occupied=[];
+      for(const entry of group){
+        let slot=occupied.findIndex(end=>end<entry.start);
+        if(slot<0)slot=occupied.length;
+        occupied[slot]=entry.end;
+        entry.slot=slot;
+      }
+      const count=1+Math.max(...group.map(e=>e.slot));
+      group.forEach(e=>e.slotCount=count);
+    };
+    for(const entry of sorted){
+      if(group.length&&entry.start>groupEnd){finish();group=[];}
+      group.push(entry);groupEnd=Math.max(groupEnd,entry.end);
+    }
+    finish();
+  }
+}
 function renderSchedule(){
   const d=S.schedule,today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
-  const periods=[[1,2],[3,4],[5,6],[7,8],[9,10,11]];
-  const headers=d.days.map((date,i)=>`<div class="week-day ${date===today?'today':''}"><strong>周${'一二三四五六日'[i]}</strong><small>${Number(date.slice(5,7))}/${Number(date.slice(8))}</small>${d.holidays.includes(date)?'<em>停课</em>':''}</div>`).join('');
-  const rows=periods.map(group=>`<div class="week-period"><strong>${group[0]}–${group.at(-1)}</strong><small>${d.times[group[0]-1].split('-')[0]}</small></div>${d.days.map(date=>{
-    const matches=d.items.map((o,index)=>({o,index})).filter(({o})=>o.date===date&&o.sections.some(n=>group.includes(n)));
-    return `<div class="week-cell ${date===today?'today':''}">${matches.map(({o,index})=>{
-      const [bg,fg]=courseColor(o.course.name);
-      return `<button class="week-course" style="--course-bg:${bg};--course-fg:${fg}" data-act="course-detail" data-id="${index}" aria-label="${esc(o.course.name)}，${o.sections.join('、')} 节${o.room?'，'+esc(o.room):''}" title="${esc(o.course.name)} · ${o.sections.join('、')} 节${o.room?' · '+esc(o.room):''}"><strong>${esc(o.course.name)}</strong><small>${esc(o.room)}</small>${o.conflicts>1?'<span class="conflict-dot" aria-label="课程冲突">!</span>':''}</button>`;
-    }).join('')}</div>`;
-  }).join('')}`).join('');
-  setView(pageHead(`第 ${d.week} 周`,'2026 秋 · 第一学期',btn('管理课程','manage-courses',{cls:'secondary small',icon:'list'}))+`
-    <div class="toolbar week-toolbar"><div class="schedule-week">${ibtn('left','上一周','week','-1')}<select id="schedule-week" aria-label="选择教学周">${Array.from({length:18},(_,i)=>`<option value="${i+1}" ${d.week===i+1?'selected':''}>第 ${i+1} 周</option>`).join('')}</select>${ibtn('right','下一周','week','1')}</div>${btn('本周','current-week',{cls:'ghost small'})}</div>
-    <div class="week-board"><div class="week-grid"><div class="week-corner">节次</div>${headers}${rows}</div></div>`);
+  if(!S.selectedWeekday)S.selectedWeekday=(new Date(today+'T12:00:00+08:00').getUTCDay()||7);
+  const selectedDate=d.days[S.selectedWeekday-1],shortDays='一二三四五六日';
+  const real=d.items.map((o,index)=>({course:o.course,date:o.date,sections:o.sections,room:o.room,index,ghost:false,conflicts:o.conflicts}));
+  const activeIds=new Set(d.items.flatMap(o=>o.members.map(m=>m.courseId)));
+  const ghostCandidates=d.value.courses.filter(c=>!c.weeks.includes(d.week)&&!activeIds.has(c.id)&&c.weeks.some(w=>w<=16))
+    .flatMap(c=>sectionRuns(c.sections).map(sections=>({course:c,date:d.days[c.weekday-1],sections,room:c.room,ghost:true,conflicts:0})))
+    .sort((a,b)=>Math.min(...a.course.weeks.map(w=>Math.abs(w-d.week)))-Math.min(...b.course.weeks.map(w=>Math.abs(w-d.week))));
+  const ghosts=[];
+  for(const candidate of ghostCandidates){
+    if([...real,...ghosts].some(o=>o.date===candidate.date&&o.sections.some(n=>candidate.sections.includes(n))))continue;
+    ghosts.push(candidate);
+  }
+  const entries=[...real,...ghosts].map(o=>({...o,start:o.sections[0],end:o.sections.at(-1)}));
+  placeScheduleCourses(entries);
+  const headers=d.days.map((date,i)=>`<button type="button" class="week-day ${i+1===S.selectedWeekday?'selected':''} ${date===today?'today':''}" style="grid-column:${i+2}" data-act="select-weekday" data-id="${i+1}" aria-pressed="${i+1===S.selectedWeekday}" aria-label="周${shortDays[i]} ${Number(date.slice(5,7))}月${Number(date.slice(8))}日${d.holidays.includes(date)?'，停课日':''}"><span>周${shortDays[i]}</span><strong>${Number(date.slice(8))}</strong>${d.holidays.includes(date)?'<em aria-hidden="true">休</em>':''}</button>`).join('');
+  const axis=d.times.map((time,i)=>`<div class="week-period" style="grid-row:${i+2}"><strong>${i+1}</strong><small>${esc(time.split('-')[0])}<br>${esc(time.split('-')[1])}</small></div>`).join('');
+  const lanes=d.days.map((date,i)=>`<div class="week-lane ${i+1===S.selectedWeekday?'selected':''}" style="grid-column:${i+2}" aria-hidden="true"></div>`).join('');
+  const cards=entries.map(o=>{
+    const [start,end]=courseColor(o.course.name),rowSpan=o.end-o.start+1;
+    const detail=o.ghost?'course-preview':'course-detail',id=o.ghost?o.course.id:String(o.index);
+    return `<button type="button" class="week-course ${o.ghost?'offweek':''}" style="grid-column:${d.days.indexOf(o.date)+2};grid-row:${o.start+1}/span ${rowSpan};--slot-left:${o.slot/o.slotCount*100}%;--slot-width:${100/o.slotCount}%;--course-start:${start};--course-end:${end}" data-act="${detail}" data-id="${esc(id)}" aria-label="${esc(o.course.name)}，${o.sections.join('、')} 节${o.room?'，'+esc(o.room):''}${o.ghost?'，非本周':''}" title="${esc(o.course.name)} · ${o.sections.join('、')} 节${o.room?' · '+esc(o.room):''}${o.ghost?' · 非本周':''}"><strong>${esc(o.course.name)}</strong>${o.room?`<small class="course-room">@${esc(o.room)}</small>`:''}${o.ghost?'<span class="offweek-badge">非本周</span>':''}${o.conflicts>1?'<span class="conflict-dot" aria-label="课程冲突">!</span>':''}</button>`;
+  }).join('');
+  setView(`<section class="schedule-screen"><div class="schedule-heading"><div class="schedule-heading-main"><h1><span class="schedule-week-select"><select id="schedule-week" aria-label="选择教学周">${Array.from({length:18},(_,i)=>`<option value="${i+1}" ${d.week===i+1?'selected':''}>第${i+1}周</option>`).join('')}</select></span><span>周${shortDays[S.selectedWeekday-1]}</span></h1><div class="schedule-subdate">${selectedDate.replaceAll('-','/')}</div></div><div class="schedule-head-actions">${ibtn('clock','回到本周','current-week')}${ibtn('list','管理课程','manage-courses')}${ibtn('settings','设置','nav','settings')}</div></div>
+    <div class="week-board" aria-label="第 ${d.week} 周课表"><div class="week-grid"><div class="week-corner">${Number(d.days[0].slice(5,7))}<span>月</span></div>${headers}${lanes}${axis}${cards}</div></div></section>`);
   const board=$('.week-board');let start=null;
   board.addEventListener('touchstart',event=>{if(event.touches.length===1)start={x:event.touches[0].clientX,y:event.touches[0].clientY};},{passive:true});
   board.addEventListener('touchend',event=>{if(!start||!event.changedTouches.length)return;const dx=event.changedTouches[0].clientX-start.x,dy=event.changedTouches[0].clientY-start.y;start=null;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3){const next=Math.max(1,Math.min(18,S.week+(dx<0?1:-1)));if(next!==S.week){S.week=next;render().catch(error=>toast(error.message));}}},{passive:true});
+}
+function coursePreview(id){
+  const c=S.schedule.value.courses.find(course=>course.id===id);
+  if(!c)return;
+  modal('其他周课程',`<div class="course-detail"><h2>${esc(c.name)}</h2><dl><dt>上课周</dt><dd>第 ${c.weeks.join('、')} 周</dd><dt>节次</dt><dd>周${'一二三四五六日'[c.weekday-1]} · ${c.sections.join('、')} 节</dd><dt>教室</dt><dd>${esc(c.room)||'待定'}</dd><dt>教师</dt><dd>${esc(c.teachers.join('、'))}</dd></dl></div><div class="form-actions">${btn('编辑常规课程','edit-course',{id:c.id,cls:'secondary'})}</div>`);
 }
 function courseDetail(index){
   const o=S.schedule.items[Number(index)];S.selectedOccurrence=o;const c=o.course;
@@ -385,7 +443,9 @@ async function action(act,id,e){
   if(act==='note-edit'){const n=S.notebook.find(n=>n.id===id);S.editNoteId=id;modal('写下自己的理解',`<form id="note-form"><textarea id="personal-note" rows="5" maxlength="4000" placeholder="这个表达适合用在…">${esc(n.personalNote||'')}</textarea><div class="form-actions"><button class="btn" type="submit">保存备注</button></div></form>`);return;}
   if(act==='week'){S.week=Math.max(1,Math.min(18,S.week+Number(id)));await render();return;}
   if(act==='current-week'){S.week=(await api('/api/dashboard')).week;await render();return;}
+  if(act==='select-weekday'){S.selectedWeekday=Number(id);renderSchedule();return;}
   if(act==='course-detail'){courseDetail(id);return;}
+  if(act==='course-preview'){coursePreview(id);return;}
   if(act==='manage-courses'){manageCourses();return;}
   if(act==='edit-course'){editCourse(id);return;}
   if(act==='add-course'){editCourse();return;}
