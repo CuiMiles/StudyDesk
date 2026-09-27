@@ -65,6 +65,16 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual("Device A writes.", self.db.doc("draft:resnet-01")["value"]["text"])
         self.assertEqual("resnet-01", self.app.dashboard()["activeDraft"])
 
+    def test_chat_history_keeps_submission_order_with_same_second_timestamps(self):
+        with self.db.connect(True) as c:
+            for index in (1, 2):
+                c.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?)", (
+                    f"chat-{index}", "ask", json.dumps({"question": f"question {index}"}),
+                    "done", json.dumps({"answer": "ok", "model": "test"}), None,
+                    "2026-09-27T02:00:00+00:00"))
+        self.assertEqual(["question 1", "question 2"],
+                         [job["request"]["question"] for job in self.app.chat_history()])
+
     def test_rating_idempotence_and_stale_device(self):
         wid = self.app.next_word()["word"]["id"]
         body = {"rating": "known", "requestId": "event-12345", "revision": 0}

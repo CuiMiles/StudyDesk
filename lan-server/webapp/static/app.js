@@ -288,11 +288,16 @@ function renderSchedule(){
   const selectedDate=d.days[S.selectedWeekday-1],shortDays='一二三四五六日';
   const real=d.items.map((o,index)=>({course:o.course,date:o.date,sections:o.sections,room:o.room,index,ghost:false,conflicts:o.conflicts}));
   const activeIds=new Set(d.items.flatMap(o=>o.members.map(m=>m.courseId)));
+  const holidayCandidates=d.value.courses.filter(c=>{
+    const date=d.days[c.weekday-1];
+    const adjustment=d.value.adjustments.find(a=>a.courseId===c.id&&a.originalDate===date);
+    return c.weeks.includes(d.week)&&d.holidays.includes(date)&&!activeIds.has(c.id)&&(!adjustment||adjustment.cancelled);
+  }).flatMap(c=>sectionRuns(c.sections).map(sections=>({course:c,date:d.days[c.weekday-1],sections,room:c.room,ghost:true,holiday:true,conflicts:0})));
   const ghostCandidates=d.value.courses.filter(c=>!c.weeks.includes(d.week)&&!activeIds.has(c.id)&&c.weeks.some(w=>w<=16))
     .flatMap(c=>sectionRuns(c.sections).map(sections=>({course:c,date:d.days[c.weekday-1],sections,room:c.room,ghost:true,conflicts:0})))
     .sort((a,b)=>Math.min(...a.course.weeks.map(w=>Math.abs(w-d.week)))-Math.min(...b.course.weeks.map(w=>Math.abs(w-d.week))));
   const ghosts=[];
-  for(const candidate of ghostCandidates){
+  for(const candidate of [...holidayCandidates,...ghostCandidates]){
     if([...real,...ghosts].some(o=>o.date===candidate.date&&o.sections.some(n=>candidate.sections.includes(n))))continue;
     ghosts.push(candidate);
   }
@@ -304,7 +309,8 @@ function renderSchedule(){
   const cards=entries.map(o=>{
     const [start,end]=courseColor(o.course.name),rowSpan=o.end-o.start+1;
     const detail=o.ghost?'course-preview':'course-detail',id=o.ghost?o.course.id:String(o.index);
-    return `<button type="button" class="week-course ${o.ghost?'offweek':''}" style="grid-column:${d.days.indexOf(o.date)+2};grid-row:${o.start+1}/span ${rowSpan};--slot-left:${o.slot/o.slotCount*100}%;--slot-width:${100/o.slotCount}%;--course-start:${start};--course-end:${end}" data-act="${detail}" data-id="${esc(id)}" aria-label="${esc(o.course.name)}，${o.sections.join('、')} 节${o.room?'，'+esc(o.room):''}${o.ghost?'，非本周':''}" title="${esc(o.course.name)} · ${o.sections.join('、')} 节${o.room?' · '+esc(o.room):''}${o.ghost?' · 非本周':''}"><strong>${esc(o.course.name)}</strong>${o.room?`<small class="course-room">@${esc(o.room)}</small>`:''}${o.ghost?'<span class="offweek-badge">非本周</span>':''}${o.conflicts>1?'<span class="conflict-dot" aria-label="课程冲突">!</span>':''}</button>`;
+    const context=o.holiday?'停课':o.ghost?'非本周':'';
+    return `<button type="button" class="week-course ${o.ghost?'offweek':''} ${o.holiday?'holiday':''}" style="grid-column:${d.days.indexOf(o.date)+2};grid-row:${o.start+1}/span ${rowSpan};--slot-left:${o.slot/o.slotCount*100}%;--slot-width:${100/o.slotCount}%;--course-start:${start};--course-end:${end}" data-act="${detail}" data-id="${esc(id)}" aria-label="${esc(o.course.name)}，${o.sections.join('、')} 节${o.room?'，'+esc(o.room):''}${context?'，'+context:''}" title="${esc(o.course.name)} · ${o.sections.join('、')} 节${o.room?' · '+esc(o.room):''}${context?' · '+context:''}"><strong>${esc(o.course.name)}</strong>${o.room?`<small class="course-room">@${esc(o.room)}</small>`:''}${context?`<span class="offweek-badge">${context}</span>`:''}${o.conflicts>1?'<span class="conflict-dot" aria-label="课程冲突">!</span>':''}</button>`;
   }).join('');
   setView(`<section class="schedule-screen"><div class="schedule-heading"><div class="schedule-heading-main"><h1><span class="schedule-week-select"><select id="schedule-week" aria-label="选择教学周">${Array.from({length:18},(_,i)=>`<option value="${i+1}" ${d.week===i+1?'selected':''}>第${i+1}周</option>`).join('')}</select></span><span>周${shortDays[S.selectedWeekday-1]}</span></h1><div class="schedule-subdate">${Number(selectedDate.slice(0,4))}/${Number(selectedDate.slice(5,7))}/${Number(selectedDate.slice(8))}</div></div><div class="schedule-head-actions">${ibtn('clock','回到本周','current-week')}${ibtn('list','管理课程','manage-courses')}${ibtn('settings','设置','nav','settings')}</div></div>
     <div class="week-board" aria-label="第 ${d.week} 周课表"><div class="week-grid"><div class="week-corner">${Number(d.days[0].slice(5,7))}<span>月</span></div>${headers}${lanes}${axis}${cards}</div></div></section>`);
@@ -315,7 +321,8 @@ function renderSchedule(){
 function coursePreview(id){
   const c=S.schedule.value.courses.find(course=>course.id===id);
   if(!c)return;
-  modal('其他周课程',`<div class="course-detail"><h2>${esc(c.name)}</h2><dl><dt>上课周</dt><dd>第 ${c.weeks.join('、')} 周</dd><dt>节次</dt><dd>周${'一二三四五六日'[c.weekday-1]} · ${c.sections.join('、')} 节</dd><dt>教室</dt><dd>${esc(c.room)||'待定'}</dd><dt>教师</dt><dd>${esc(c.teachers.join('、'))}</dd></dl></div><div class="form-actions">${btn('编辑常规课程','edit-course',{id:c.id,cls:'secondary'})}</div>`);
+  const holiday=c.weeks.includes(S.schedule.week)&&S.schedule.holidays.includes(S.schedule.days[c.weekday-1]);
+  modal(holiday?'本次停课':'其他周课程',`<div class="course-detail"><h2>${esc(c.name)}</h2>${holiday?'<p class="help-text">这一天为停课日，卡片仅表示原课程位置。</p>':''}<dl><dt>上课周</dt><dd>第 ${c.weeks.join('、')} 周</dd><dt>节次</dt><dd>周${'一二三四五六日'[c.weekday-1]} · ${c.sections.join('、')} 节</dd><dt>教室</dt><dd>${esc(c.room)||'待定'}</dd><dt>教师</dt><dd>${esc(c.teachers.join('、'))}</dd></dl></div><div class="form-actions">${btn('编辑常规课程','edit-course',{id:c.id,cls:'secondary'})}</div>`);
 }
 function courseDetail(index){
   const o=S.schedule.items[Number(index)];S.selectedOccurrence=o;const c=o.course;

@@ -446,7 +446,7 @@ class StudyService:
 
     def chat_history(self):
         with self.db.connect() as c:
-            return [self.decode_job(r) for r in c.execute("SELECT * FROM jobs WHERE kind='ask' ORDER BY created DESC LIMIT 30")][::-1]
+            return [self.decode_job(r) for r in c.execute("SELECT * FROM jobs WHERE kind='ask' ORDER BY created DESC, rowid DESC LIMIT 30")][::-1]
 
     def restore(self, backup, revision):
         if not isinstance(backup, dict) or backup.get("format") != "studydesk-web" or backup.get("version") != 1:
