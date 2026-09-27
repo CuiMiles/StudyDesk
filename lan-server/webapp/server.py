@@ -131,6 +131,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(app.ai.summary())
         if path == "/api/settings":
             return self.respond(app.db.doc("settings"))
+        if path == "/api/profile":
+            return self.respond(app.profile())
+        if path == "/api/word-prompts":
+            return self.respond(app.word_prompts())
         if path == "/api/papers":
             return self.respond(app.content.papers)
         if path == "/api/exercises":
@@ -180,6 +184,10 @@ class Handler(BaseHTTPRequestHandler):
         app = self.app
         if path == "/api/settings":
             return self.respond(app.settings(body))
+        if path == "/api/profile":
+            return self.respond(app.save_profile(body))
+        if path == "/api/word-prompts":
+            return self.respond(app.save_word_prompts(body))
         if path == "/api/schedule":
             value = validate_schedule(body.get("value"))
             if type(body.get("revision")) is not int:

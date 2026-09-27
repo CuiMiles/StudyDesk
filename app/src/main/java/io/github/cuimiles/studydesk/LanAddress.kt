@@ -18,7 +18,7 @@ object LanAddress {
         require(host == "localhost" || validIpv4) { "请输入局域网 IPv4 地址，例如 192.168.1.100" }
         require(uri.port == -1 || uri.port in 1..65535) { "端口必须在 1–65535 之间" }
         require(uri.path.isNullOrEmpty() || uri.path == "/") { "只填写服务器地址和端口，不要附带页面路径" }
-        return "${uri.scheme}://$host${if (uri.port != -1) ":${uri.port}" else ""}/"
+        return "${uri.scheme}://$host:${if (uri.port != -1) uri.port else 8765}/"
     }
     fun sameOrigin(server: String, destination: String): Boolean = runCatching {
         val a = URI(normalize(server)); val b = URI(destination)

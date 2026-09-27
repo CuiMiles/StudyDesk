@@ -23,6 +23,7 @@ import java.util.concurrent.Executors
 class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var web: WebView
     private lateinit var status: TextView
+    private lateinit var connectionBar: LinearLayout
     private lateinit var progress: ProgressBar
     private lateinit var tts: TextToSpeech
     private var voiceReady = false
@@ -58,17 +59,19 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             setPadding(dp(14), dp(4), dp(10), dp(4))
             gravity = android.view.Gravity.CENTER_VERTICAL
         }
+        connectionBar = bar
         status = TextView(this).apply {
-            text = "StudyDesk · 正在连接"; textSize = 12f
+            text = "连接失败 · 点击修改地址"; textSize = 12f
             setTextColor(Color.rgb(95, 116, 83))
             setOnClickListener { addressDialog() }
         }
         bar.addView(status, LinearLayout.LayoutParams(0, dp(40), 1f))
         bar.addView(Button(this).apply {
-            text = "连接设置"; textSize = 11f; minWidth = 0; minimumWidth = 0
+            text = "设置"; textSize = 11f; minWidth = 0; minimumWidth = 0
             setOnClickListener { addressDialog() }
         }, LinearLayout.LayoutParams(dp(92), dp(42)))
         root.addView(bar)
+        bar.visibility = View.GONE
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
         root.addView(progress, LinearLayout.LayoutParams(-1, dp(2)))
         web = WebView(this).apply {
@@ -98,14 +101,15 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     if (trusted(url) && !loadFailed) {
-                        status.text = "已连接 · ${Uri.parse(serverAddress).authority}"
+                        connectionBar.visibility = View.GONE
                         this@LanActivity.progress.visibility = View.GONE
                     }
                 }
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                     if (request.isForMainFrame) {
                         loadFailed = true
-                        status.text = "连接中断 · 点击检查服务器地址"
+                        status.text = "连接中断 · 点击修改地址"
+                        connectionBar.visibility = View.VISIBLE
                         this@LanActivity.progress.visibility = View.GONE
                         message("请确认手机与服务器在同一局域网，且后台服务正在运行。")
                     }
@@ -114,6 +118,7 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     if (request.isForMainFrame) {
                         loadFailed = true
                         status.text = "服务器暂不可用 · ${response.statusCode}"
+                        connectionBar.visibility = View.VISIBLE
                     }
                 }
             }
@@ -156,20 +161,20 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun connect(value: String) {
         serverAddress = LanAddress.normalize(value)
         prefs.edit().putString("server", serverAddress).apply()
-        status.text = "正在连接 · ${Uri.parse(serverAddress).authority}"
+        connectionBar.visibility = View.GONE
         this@LanActivity.progress.visibility = View.VISIBLE
         web.loadUrl(serverAddress)
     }
     private fun addressDialog() {
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(12), dp(24), dp(8)) }
         layout.addView(TextView(this).apply {
-            text = "输入电脑的局域网地址和端口。网页与 App 会接续同一份学习进度。\n\n例如：http://10.184.17.163:8765\n模拟器连接本机服务：10.0.2.2:8765"
+            text = "输入电脑的局域网 IP，默认端口 8765。\n例如：10.184.17.163\n模拟器连接本机服务：10.0.2.2"
             textSize = 13f; setTextColor(Color.rgb(111, 126, 99))
         })
         val input = EditText(this).apply {
             setSingleLine(true)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
-            hint = "http://192.168.1.100:8765"; setText(serverAddress)
+            hint = "192.168.1.100"; setText(serverAddress)
         }
         layout.addView(input)
         val error = TextView(this).apply { setTextColor(Color.rgb(164, 83, 63)); textSize = 12f }

@@ -6,8 +6,9 @@ import org.junit.Test
 class LanAddressTest {
     @Test fun acceptsLocalServersAndEmulator() {
         assertEquals("http://10.184.17.163:8765/", LanAddress.normalize("10.184.17.163:8765"))
+        assertEquals("http://10.184.17.163:8765/", LanAddress.normalize("10.184.17.163"))
         assertEquals("http://10.0.2.2:8765/", LanAddress.normalize("http://10.0.2.2:8765/"))
-        assertEquals("https://192.168.0.12/", LanAddress.normalize("https://192.168.0.12"))
+        assertEquals("https://192.168.0.12:8765/", LanAddress.normalize("https://192.168.0.12"))
     }
     @Test fun rejectsUntrustedDestinations() {
         listOf("https://example.com", "file:///etc/passwd", "http://10.0.0.1@evil.com", "http://192.168.1.1:0", "http://192.168.1.1/path", "http://256.1.1.1", "javascript:alert(1)").forEach {

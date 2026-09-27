@@ -50,7 +50,13 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(40, len(self.app.exercises()))
         self.assertNotIn("reference", self.app.exercise_detail("resnet-01"))
         self.assertIn("reference", self.app.exercise_detail("resnet-01", True))
-        self.assertEqual(17, len(self.db.doc("schedule")["value"]["courses"]))
+        self.assertEqual(18, len(self.db.doc("schedule")["value"]["courses"]))
+        sports = next(o for o in schedule(self.db.doc("schedule")["value"], 1)["items"]
+                      if o["course"]["id"] == "c-sports-wed-3-4")
+        self.assertEqual([3, 4], sports["sections"])
+        self.assertEqual("2号巨构七楼羽毛球场", sports["room"])
+        self.assertEqual(["胡浩"], sports["course"]["teachers"])
+        self.assertFalse(any(o["course"]["id"] == "c-sports-wed-3-4" for o in schedule(self.db.doc("schedule")["value"], 9)["items"]))
 
     def test_draft_conflicts_preserve_newer_device(self):
         self.app.save_draft("resnet-01", {"text": "Device A writes.", "revision": 0})
@@ -112,7 +118,7 @@ class ServiceTests(unittest.TestCase):
 
     def test_holidays_moves_and_base_preserved(self):
         s = self.db.doc("schedule")["value"]
-        c = s["courses"][0]
+        c = next(c for c in s["courses"] if c["id"] == "c-material")
         original = copy.deepcopy(c)
         s["adjustments"] = [{"courseId": c["id"], "originalDate": "2026-09-14", "date": "2026-09-25", "sections": [3,4], "room": "新教室", "cancelled": False}]
         valid = validate_schedule(s)
@@ -161,6 +167,22 @@ class ServiceTests(unittest.TestCase):
         before = self.db.backup()["tables"]
         with self.assertRaises(ValueError): self.app.restore(malformed, self.db.version())
         self.assertEqual(before, self.db.backup()["tables"])
+
+    def test_profile_and_word_prompts_sync_and_restore(self):
+        profile = self.app.save_profile({"revision": 0, "value": {"displayName": "小崔", "showName": True, "minimalMode": False}})
+        self.assertEqual("小崔", self.app.profile()["value"]["displayName"])
+        with self.assertRaises(Conflict):
+            self.app.save_profile({"revision": 0, "value": {"displayName": "旧设备", "showName": True, "minimalMode": True}})
+        presets = {"presets": [{"id": "prompt-academic", "name": "论文用法", "template": "请比较 {word} 在方法和实验部分的用法。"}]}
+        saved = self.app.save_word_prompts({"revision": 0, "value": presets})
+        self.assertEqual(presets, self.app.word_prompts()["value"])
+        with self.assertRaises(ValueError):
+            self.app.save_word_prompts({"revision": saved["revision"], "value": {"presets": [{**presets["presets"][0], "template": "没有占位符"}]}})
+        backup = self.db.backup()
+        self.app.save_word_prompts({"revision": saved["revision"], "value": {"presets": []}})
+        self.app.restore(backup, self.db.version())
+        self.assertEqual("小崔", self.app.profile()["value"]["displayName"])
+        self.assertEqual(presets, self.app.word_prompts()["value"])
 
     def test_note_review_and_conflicting_edit(self):
         self.completed_review()

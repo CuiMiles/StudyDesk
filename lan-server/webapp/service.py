@@ -11,6 +11,12 @@ from .db import Conflict, day, dumps, now
 from .gemini import AIError, Gemini
 
 DEFAULT_SETTINGS = {"dailyNewLimit": 20, "levels": ["L3"], "autoSpeak": True, "writingGoal": 3}
+DEFAULT_PROFILE = {"displayName": "", "showName": False, "minimalMode": True}
+DEFAULT_WORD_PROMPTS = {"presets": [
+    {"id": "word-usage", "name": "常用法", "template": "请用简单中文讲解 {word} 的常见含义、搭配和一个自然的英文例句；指出最容易误用的地方。"},
+    {"id": "word-academic", "name": "论文表达", "template": "请讲解 {word} 在深度学习论文中适合出现的语境，给出两个可替换研究对象的通用英文句式，并提醒何时不宜使用。"},
+    {"id": "word-contrast", "name": "近义词辨析", "template": "请比较 {word} 与两个常见近义词在学术写作中的区别，给出简短例句和选择建议。"},
+]}
 
 
 def text(value, limit, label="内容", empty=False):
@@ -23,6 +29,34 @@ def token(value):
     if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", value):
         raise ValueError("请求编号无效")
     return value
+
+
+def validate_profile(value):
+    if not isinstance(value, dict) or set(value) != set(DEFAULT_PROFILE):
+        raise ValueError("个人显示设置格式不正确")
+    name = text(value["displayName"], 30, "显示名称", True)
+    if any(ord(ch) < 32 for ch in name) or type(value["showName"]) is not bool or type(value["minimalMode"]) is not bool:
+        raise ValueError("个人显示设置格式不正确")
+    if value["showName"] and not name:
+        raise ValueError("显示名称后请先填写名称")
+    return {**value, "displayName": name}
+
+
+def validate_word_prompts(value):
+    if not isinstance(value, dict) or set(value) != {"presets"} or not isinstance(value["presets"], list) or len(value["presets"]) > 20:
+        raise ValueError("提示词列表格式不正确，最多保存 20 套")
+    result, seen = [], set()
+    for item in value["presets"]:
+        if not isinstance(item, dict) or set(item) != {"id", "name", "template"}:
+            raise ValueError("提示词格式不正确")
+        pid = token(item["id"])
+        name = text(item["name"], 40, "模板名称")
+        template = text(item["template"], 3800, "模板内容")
+        if pid in seen or "{word}" not in template or len(template) > 3800:
+            raise ValueError("模板 ID 重复或缺少 {word} 占位符")
+        seen.add(pid)
+        result.append({"id": pid, "name": name, "template": template})
+    return {"presets": result}
 
 
 def validate_feedback(r):
@@ -251,6 +285,22 @@ class StudyService:
             raise ValueError("设置格式不正确")
         return self.db.put("settings", {k: s[k] for k in DEFAULT_SETTINGS}, body.get("revision", -1))
 
+    def profile(self):
+        return self.db.doc("profile", DEFAULT_PROFILE)
+
+    def save_profile(self, body):
+        if type(body.get("revision")) is not int:
+            raise ValueError("缺少个人设置版本")
+        return self.db.put("profile", validate_profile(body.get("value")), body["revision"])
+
+    def word_prompts(self):
+        return self.db.doc("word-prompts", DEFAULT_WORD_PROMPTS)
+
+    def save_word_prompts(self, body):
+        if type(body.get("revision")) is not int:
+            raise ValueError("缺少提示词版本")
+        return self.db.put("word-prompts", validate_word_prompts(body.get("value")), body["revision"])
+
     def notes(self):
         with self.db.connect() as c:
             return [{"id": r["id"], "kind": r["kind"], **json.loads(r["value"]), "revision": r["revision"]}
@@ -428,13 +478,17 @@ class StudyService:
                     raise ValueError("备份中的 JSON 格式不正确")
                 if table == "documents":
                     key = row["key"]
-                    if key not in ("_version", "schedule", "settings", "word-session") and not key.startswith("draft:"):
+                    if key not in ("_version", "schedule", "settings", "word-session", "profile", "word-prompts") and not key.startswith("draft:"):
                         raise ValueError("备份包含未知文档")
                     if key == "schedule":
                         validate_schedule(obj)
                     if key == "settings":
                         if set(obj) != set(DEFAULT_SETTINGS) or type(obj["dailyNewLimit"]) is not int or not 1 <= obj["dailyNewLimit"] <= 100 or not isinstance(obj["levels"], list) or not obj["levels"] or any(x not in ("L1","L2","L3","L4") for x in obj["levels"]):
                             raise ValueError("备份学习设置不正确")
+                    if key == "profile":
+                        validate_profile(obj)
+                    if key == "word-prompts":
+                        validate_word_prompts(obj)
                     if key.startswith("draft:") and (key[6:] not in self.content.exercise_map or not isinstance(obj.get("text"), str)):
                         raise ValueError("备份草稿不正确")
                     if key == "word-session" and obj.get("wordId") and obj["wordId"] not in self.content.words:

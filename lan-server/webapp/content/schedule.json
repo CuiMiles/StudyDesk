@@ -3,6 +3,17 @@
   "semesterId": "2026-fall",
   "courses": [
     {
+      "id": "c-sports-wed-3-4",
+      "name": "体育（羽毛球）",
+      "className": "",
+      "teachers": ["胡浩"],
+      "room": "2号巨构七楼羽毛球场",
+      "weekday": 3,
+      "sections": [3, 4],
+      "weeks": [1, 2, 3, 4, 5, 6, 7, 8],
+      "note": ""
+    },
+    {
       "id": "c-material",
       "name": "材料科学进展（实践）",
       "className": "1班",
