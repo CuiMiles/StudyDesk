@@ -2,7 +2,17 @@ plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.ko
 android {
     namespace = "io.github.cuimiles.studydesk"
     compileSdk = 36
-    defaultConfig { applicationId = "io.github.cuimiles.studydesk"; minSdk = 26; targetSdk = 36; versionCode = 6; versionName = "1.1.1-lan" }
+    defaultConfig { applicationId = "io.github.cuimiles.studydesk"; minSdk = 26; targetSdk = 36; versionCode = 7; versionName = "1.2.0-lan" }
+    val lanKeystore = System.getenv("STUDYDESK_SIGNING_STORE_FILE")
+    if (!lanKeystore.isNullOrBlank()) {
+        signingConfigs.create("lanRelease") {
+            storeFile = file(lanKeystore)
+            storePassword = System.getenv("STUDYDESK_SIGNING_STORE_PASSWORD")
+            keyAlias = System.getenv("STUDYDESK_SIGNING_KEY_ALIAS")
+            keyPassword = System.getenv("STUDYDESK_SIGNING_KEY_PASSWORD")
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("lanRelease")
+    }
     buildFeatures { compose = true }
     androidResources { ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:CVS:thumbs.db:picasa.ini:*~:*.db-shm:*.db-wal" }
     testOptions { unitTests.isIncludeAndroidResources = true }
@@ -18,6 +28,7 @@ dependencies {
     implementation(project(":core"))
     implementation(platform("androidx.compose:compose-bom:2025.06.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.core:core:1.13.1")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")

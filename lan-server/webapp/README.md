@@ -92,6 +92,16 @@ python3 webapp/scripts/download_papers.py  # 需要 pdftotext，只下载公开�
 
 Android Studio 打开 `StudyDesk/`（独立 Git 仓库）。新版默认启动 `LanActivity`，使用原生服务器设置 + WebView 展示同一个网站，原生英语 TTS 和系统文档选择器负责朗读、导入/导出。**不是离线原生 Compose 重写**；联网后所有学习记录都是服务器版本，没有另一套 App 专属进度。
 
+手机与服务器同一可互通局域网时，在手机浏览器打开 **http://10.184.17.163:8765/install**，点“下载 Android 安装包”，按 Android 提示安装。首次打开 App 输入 `10.184.17.163`（默认端口 `8765`）；若连接弹窗关闭，顶部仍可重新输入。普通课表、练习、AI 和界面更新来自网页，刷新或重开 App 即可使用，无需重装。只有 Android 原生代码更新才到“设置 → 连接与使用 → 检查应用更新”，App 会核对版本、下载并校验 APK，再交由 Android 确认安装。首次使用该按钮可能需要在系统设置允许 StudyDesk 安装应用。
+
+局域网 APK 使用保存在服务器用户目录的**同一长期签名**。首次发布及以后升级都从服务器源码根目录运行（需要 JDK 17+、Android SDK 和 Gradle）：
+
+```bash
+ANDROID_HOME=/path/to/android-sdk JAVA_HOME=/path/to/jdk python3 webapp/scripts/build_android_release.py
+```
+
+该命令构建 Release APK、验证包名/版本/签名/摘要后原子发布到 `webapp/runtime/android/`；发布后无需重启服务。以后更新先提高 `StudyDesk/app/build.gradle.kts` 的 `versionCode` 和 `versionName`，再运行同一命令。请私下备份 `~/.config/studydesk/signing/release.p12` 和 `release.json`，两者都不能提交 Git；丢失签名就无法原位升级。GitHub Actions 的 Debug APK 仅用于开发预览，签名与局域网 Release APK 不同；如果手机已装 Debug 版，首次切换到局域网 Release 版需先卸载旧 App，再从下载页安装。学习记录保存在服务器，手机本地保存的服务器地址需重新输入。
+
 首次启动填 `10.184.17.163`，会自动使用 `8765` 端口；也可填完整地址和自定义端口。模拟器连接同一台电脑上启动的服务用 `10.0.2.2`；连接这台远程 Linux 服务器仍用它的局域网 IP。更换地址在网页设置中；连接失败时会出现原生修改入口。旧原生学习数据库不会自动上传；旧版本数据如需迁移，应先导出并单独转换校验，当前网页备份不冒充兼容所有旧 Android 备份。
 
 ## 验证

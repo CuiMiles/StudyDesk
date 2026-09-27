@@ -4,6 +4,12 @@
 
 Android 客户端使用 **Kotlin 原生连接设置 + WebView + 原生 TTS / 系统文件选择器**。默认启动 `LanActivity`；现有离线 Compose 模块保留在源码中，但不再是新版默认入口。新版不在 APK 中存储 Gemini 密钥，也不维护一份与网页分离的学习进度。
 
+## 手机上直接安装
+
+手机浏览器打开 **http://10.184.17.163:8765/install**，点“下载 Android 安装包”并按系统提示安装。第一次启动填 `10.184.17.163`，端口默认 `8765`。若关掉输入弹窗，顶部仍有重新输入入口。服务器网页功能更新会直接生效；需要升级原生 App 时，在“设置 → 连接与使用 → 检查应用更新”下载，Android 会要求你确认安装。首次使用此按钮可能要在系统设置允许 StudyDesk 安装应用。
+
+局域网安装包由服务器使用固定的私人密钥签名，不使用 CI 生成的 Debug 签名。若已安装旧的 Debug APK，首次切换到局域网 Release APK 需要卸载旧 App 再安装；服务器上的学习记录仍在，手机需重新输入服务器地址。以后同一 Release 签名的版本可以原位更新。构建发布命令及签名备份说明见 [服务端说明](lan-server/webapp/README.md#android)。
+
 ## Android Studio 打开与运行
 
 1. 克隆 `https://github.com/CuiMiles/StudyDesk.git`，在 Android Studio 打开仓库根目录。

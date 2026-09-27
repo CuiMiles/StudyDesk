@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.view.View
 import android.webkit.*
@@ -13,10 +14,17 @@ import android.widget.*
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import androidx.core.content.pm.PackageInfoCompat
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.Executors
 
 /** Native LAN client. All learning records and provider keys remain on the server. */
@@ -31,6 +39,8 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var loadFailed = false
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var pendingDownload: String? = null
+    private var pendingRelease: LanRelease? = null
+    private val updateBusy = AtomicBoolean(false)
     private val io = Executors.newSingleThreadExecutor()
     private val prefs by lazy { getSharedPreferences("lan_connection", MODE_PRIVATE) }
     private val filePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -41,6 +51,12 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val source = pendingDownload
         pendingDownload = null
         if (uri != null && source != null && trusted(source)) downloadBackup(source, uri)
+    }
+    private val installAccess = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val release = pendingRelease
+        pendingRelease = null
+        if (release != null && packageManager.canRequestPackageInstalls() && release.server == serverAddress) downloadUpdate(release)
+        else message("尚未允许 StudyDesk 安装更新；可以稍后重试。")
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -149,7 +165,19 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         })
         serverAddress = prefs.getString("server", "").orEmpty()
-        if (serverAddress.isBlank()) addressDialog() else connect(serverAddress)
+        if (serverAddress.isBlank()) {
+            status.text = "尚未连接 · 点击输入服务器地址"
+            connectionBar.visibility = View.VISIBLE
+            progress.visibility = View.GONE
+            addressDialog()
+        } else runCatching { connect(serverAddress) }.onFailure {
+            serverAddress = ""
+            prefs.edit().remove("server").apply()
+            status.text = "服务器地址无效 · 点击重新输入"
+            connectionBar.visibility = View.VISIBLE
+            progress.visibility = View.GONE
+            addressDialog()
+        }
     }
 
     private fun dp(n: Int): Int = (n * resources.displayMetrics.density).toInt()
@@ -206,6 +234,122 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
         @JavascriptInterface fun openSettings() { runOnUiThread { if (trusted(web.url.orEmpty())) addressDialog() } }
+        @JavascriptInterface fun checkForUpdate() { runOnUiThread { if (trusted(web.url.orEmpty())) checkUpdate() } }
+    }
+    private fun checkUpdate() {
+        if (!updateBusy.compareAndSet(false, true)) return
+        val server = serverAddress
+        io.execute {
+            try {
+                val json = request(server + "api/android/latest", "application/json", 16_384)
+                val release = LanRelease.parse(json.toString(Charsets.UTF_8), server, packageName)
+                val current = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0))
+                runOnUiThread {
+                    updateBusy.set(false)
+                    if (server != serverAddress) return@runOnUiThread
+                    if (release.versionCode <= current) message("已是最新应用版本；学习内容由服务器实时更新。")
+                    else AlertDialog.Builder(this).setTitle("发现应用更新 ${release.versionName}")
+                        .setMessage("安装包约 ${"%.1f".format(Locale.CHINA, release.size / 1_000_000.0)} MB。下载校验后由 Android 确认安装。")
+                        .setNegativeButton("稍后", null)
+                        .setPositiveButton("下载并安装") { _, _ -> prepareUpdate(release) }.show()
+                }
+            } catch (_: Exception) {
+                updateBusy.set(false)
+                message("检查更新失败，请确认已连接服务器且安装包已发布。")
+            }
+        }
+    }
+    private fun prepareUpdate(release: LanRelease) {
+        if (release.server != serverAddress) return
+        if (!packageManager.canRequestPackageInstalls()) {
+            pendingRelease = release
+            AlertDialog.Builder(this).setTitle("允许此来源安装")
+                .setMessage("为通过局域网安装更新，请在 Android 设置中允许 StudyDesk 安装应用。返回后将继续下载。")
+                .setNegativeButton("取消") { _, _ -> pendingRelease = null }
+                .setPositiveButton("打开设置") { _, _ ->
+                    installAccess.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                }.show()
+            return
+        }
+        downloadUpdate(release)
+    }
+    private fun downloadUpdate(release: LanRelease) {
+        if (!updateBusy.compareAndSet(false, true)) return
+        message("正在下载应用更新…")
+        io.execute {
+            val directory = File(cacheDir, "updates").apply { mkdirs() }
+            val part = File(directory, "StudyDesk-${release.versionCode}.apk.part")
+            val apk = File(directory, "StudyDesk-${release.versionCode}.apk")
+            try {
+                val digest = MessageDigest.getInstance("SHA-256")
+                val url = release.server + release.url.removePrefix("/")
+                var connection: HttpURLConnection? = null
+                try {
+                    connection = URL(url).openConnection() as HttpURLConnection
+                    connection.instanceFollowRedirects = false
+                    connection.connectTimeout = 10_000; connection.readTimeout = 30_000
+                    check(connection.responseCode == 200 && connection.contentType.orEmpty().startsWith("application/vnd.android.package-archive"))
+                    check(connection.contentLengthLong == release.size)
+                    FileOutputStream(part).use { output ->
+                        connection.inputStream.use { input ->
+                            val buffer = ByteArray(64 * 1024)
+                            var total = 0L
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                total += count
+                                check(total <= release.size)
+                                digest.update(buffer, 0, count)
+                                output.write(buffer, 0, count)
+                            }
+                            check(total == release.size)
+                        }
+                    }
+                } finally { connection?.disconnect() }
+                check(digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) } == release.sha256)
+                check(part.renameTo(apk))
+                val archive = packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
+                check(archive?.packageName == packageName && PackageInfoCompat.getLongVersionCode(archive) == release.versionCode.toLong())
+                runOnUiThread {
+                    updateBusy.set(false)
+                    if (release.server == serverAddress) launchInstaller(apk)
+                }
+            } catch (_: Exception) {
+                part.delete()
+                updateBusy.set(false)
+                message("下载或校验失败，请检查网络后重试。")
+            }
+        }
+    }
+    private fun launchInstaller(apk: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.updates", apk)
+            val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = uri
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(intent)
+        } catch (_: Exception) { message("无法打开 Android 安装程序；请在系统设置中允许安装应用。") }
+    }
+    private fun request(url: String, type: String, maxBytes: Int): ByteArray {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = 10_000; connection.readTimeout = 20_000
+            check(connection.responseCode == 200 && connection.contentType.orEmpty().startsWith(type))
+            check(connection.contentLengthLong in 1..maxBytes.toLong())
+            return connection.inputStream.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(4096)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    check(output.size() + count <= maxBytes)
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            }
+        } finally { connection.disconnect() }
     }
     override fun onInit(result: Int) {
         if (result == TextToSpeech.SUCCESS) {

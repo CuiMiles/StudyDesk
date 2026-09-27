@@ -5,7 +5,9 @@ import ipaddress
 import json
 import mimetypes
 import os
+import re
 import signal
+import shutil
 import socket
 import threading
 import time
@@ -19,6 +21,26 @@ from .gemini import AIError
 from .service import StudyService
 
 STATIC = Path(__file__).parent / "static"
+RELEASES = Path(__file__).parent / "runtime/android"
+
+
+def android_release():
+    """Only the publisher's small manifest can select a public, versioned APK."""
+    try:
+        value = json.loads((RELEASES / "latest.json").read_text())
+        code = value["versionCode"]
+        if (type(code) is not int or not 1 <= code <= 2_100_000_000
+                or value.get("packageName") != "io.github.cuimiles.studydesk"
+                or not isinstance(value.get("versionName"), str)
+                or not 1 <= len(value["versionName"]) <= 64
+                or type(value.get("size")) is not int or not 0 < value["size"] <= 200_000_000
+                or not re.fullmatch(r"[0-9a-f]{64}", value.get("sha256", ""))
+                or value.get("url") != f"/api/android/apk/{code}"):
+            return None
+        apk = RELEASES / f"StudyDesk-{code}.apk"
+        return value if apk.is_file() and apk.stat().st_size == value["size"] else None
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -61,6 +83,12 @@ class Handler(BaseHTTPRequestHandler):
         self.finish_headers(200, content_type or mimetypes.guess_type(str(path))[0] or "application/octet-stream", len(data), headers)
         if self.command != "HEAD":
             self.wfile.write(data)
+
+    def stream_file(self, path, content_type, headers=None):
+        with path.open("rb") as source:
+            self.finish_headers(200, content_type, path.stat().st_size, headers)
+            if self.command != "HEAD":
+                shutil.copyfileobj(source, self.wfile, 1024 * 1024)
 
     def valid_host(self):
         raw = self.headers.get("Host", "")
@@ -121,6 +149,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def get(self, path, q):
         app = self.app
+        if path == "/api/android/latest":
+            release = android_release()
+            return self.respond(release if release else {"error": "尚未发布 Android 安装包"}, 200 if release else 404)
+        if path == "/android.apk" or re.fullmatch(r"/api/android/apk/[1-9][0-9]*", path):
+            release = android_release()
+            if release and (path == "/android.apk" or path == release["url"]):
+                name = f"StudyDesk-{release['versionCode']}.apk"
+                return self.stream_file(RELEASES / name, "application/vnd.android.package-archive",
+                                        {"Content-Disposition": f'attachment; filename="{name}"'})
+            return self.respond({"error": "安装包不存在"}, 404)
         if path == "/api/health":
             return self.respond({"ok": True, "service": "StudyDesk", "version": 1})
         if path == "/api/sync":
@@ -174,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
             choices = {"CC-BY-4.0.txt", "CC-BY-SA-4.0.txt", "wordfreq-NOTICE.txt"}
             if name in choices:
                 return self.file(ROOT / "miniprogram/vocabulary/licenses" / name, "text/plain; charset=utf-8")
-        files = {"/": "index.html", "/index.html": "index.html", "/app.js": "app.js", "/style.css": "style.css",
+        files = {"/": "index.html", "/index.html": "index.html", "/install": "install.html", "/app.js": "app.js", "/style.css": "style.css",
                  "/icon.svg": "icon.svg", "/manifest.webmanifest": "manifest.webmanifest"}
         if path in files:
             return self.file(STATIC / files[path])

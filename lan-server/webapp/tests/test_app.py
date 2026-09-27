@@ -1,6 +1,7 @@
 import concurrent.futures
 import copy
 import datetime as dt
+import hashlib
 import json
 import tempfile
 import threading
@@ -270,6 +271,29 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(403,self.request('/api/settings',{}, {'Content-Type':'application/json'})[0])
         self.assertEqual(403,self.request('/api/settings',{}, {'Content-Type':'application/json','X-StudyDesk':'1','Origin':'https://evil.example'})[0])
         self.assertEqual(403,self.request('/api/health',headers={'Host':'evil.example'})[0])
+
+    def test_lan_apk_publication_endpoints(self):
+        with tempfile.TemporaryDirectory() as location, patch("webapp.server.RELEASES", Path(location)):
+            self.assertEqual(404, self.request('/api/android/latest')[0])
+            self.assertEqual(200, self.request('/install')[0])
+            apk = b"example signed APK bytes"
+            (Path(location) / "StudyDesk-7.apk").write_bytes(apk)
+            release = {"packageName": "io.github.cuimiles.studydesk", "versionCode": 7,
+                       "versionName": "1.2.0-lan", "size": len(apk), "sha256": hashlib.sha256(apk).hexdigest(),
+                       "url": "/api/android/apk/7"}
+            (Path(location) / "latest.json").write_text(json.dumps(release))
+            self.assertEqual(release, json.loads(self.request('/api/android/latest')[1]))
+            self.assertEqual(apk, self.request('/android.apk')[1])
+            self.assertEqual(apk, self.request('/api/android/apk/7')[1])
+            self.assertEqual(404, self.request('/api/android/apk/6')[0])
+            self.assertEqual(404, self.request('/api/android/apk/../.env')[0])
+            head = urllib.request.Request(self.url + '/android.apk', method='HEAD')
+            with self.client.open(head) as response:
+                self.assertEqual(len(apk), int(response.headers['Content-Length']))
+                self.assertEqual(b'', response.read())
+            release['url'] = '/../../.env'
+            (Path(location) / "latest.json").write_text(json.dumps(release))
+            self.assertEqual(404, self.request('/api/android/latest')[0])
 
 
 if __name__ == "__main__": unittest.main()
