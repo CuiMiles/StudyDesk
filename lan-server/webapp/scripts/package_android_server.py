@@ -23,6 +23,6 @@ if __name__ == "__main__":
         target = dest / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, target)
-    (dest / ".env.example").write_text("GEMINI_API_KEY=\nGEMINI_API_KEY2=\nGEMINI_API_KEY3=\n")
+    (dest / ".env.example").write_text("GEMINI_API_KEY=\nGEMINI_API_KEY2=\nGEMINI_API_KEY23=\nTAVILY_API_KEYS=[]\n")
     (dest / "README.md").write_text("# StudyDesk LAN server\n\nSee [the complete deployment and usage guide](webapp/README.md).\n\nRun from this directory with Python 3.11+: `python3 -m webapp.server --port 8765`.\nCopy `.env.example` to `.env` and fill in your own keys on the server only. No provider keys or user study records are bundled.\n\nOptional pre-generated vocabulary content is reused read-only from `../app/src/main/assets/content.db`.\n")
     print("Packaged source, dictionary shards and licenses into", dest)

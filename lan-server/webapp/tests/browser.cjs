@@ -33,7 +33,7 @@ fs.mkdirSync(artifacts, {recursive:true});
       board.dispatchEvent(new TouchEvent('touchstart',{touches:[at(300)],changedTouches:[at(300)],bubbles:true}));
       board.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[at(100)],bubbles:true}));
     });
-    await phone.locator('.week-board[aria-label="第 2 周课表"]').waitFor();
+    await phone.waitForFunction(()=>!document.querySelector('.week-slide-track')&&document.querySelector('.week-board')?.getAttribute('aria-label')==='第 2 周课表');
     const geometry=await phone.evaluate(()=>({
       top:document.querySelector('.week-board').getBoundingClientRect().top,
       cardHeight:document.querySelector('.week-course').getBoundingClientRect().height,
@@ -65,6 +65,14 @@ fs.mkdirSync(artifacts, {recursive:true});
     await visit(phone,'home');await visit(pc,'home');
     await phone.screenshot({path:path.join(artifacts,'mobile-home.png'),fullPage:true});
     await pc.screenshot({path:path.join(artifacts,'desktop-home.png'),fullPage:true});
+    await phone.evaluate(()=>{
+      const view=document.querySelector('#view');
+      const at=x=>new Touch({identifier:2,target:view,clientX:x,clientY:320});
+      view.dispatchEvent(new TouchEvent('touchstart',{touches:[at(300)],changedTouches:[at(300)],bubbles:true}));
+      view.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[at(80)],bubbles:true}));
+    });
+    await phone.waitForFunction(()=>location.hash.startsWith('#/write/')&&!document.querySelector('.skeleton'));
+    assert.equal(await phone.locator('.mobile-nav [data-nav="write"]').getAttribute('aria-current'),'page','Horizontal swipe switches non-timetable tabs');
     for(const route of ['write/resnet-01','words','schedule','notebook','settings','chat']){
       await visit(phone,route);
       assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No viewport overflow: '+route);
@@ -137,13 +145,14 @@ fs.mkdirSync(artifacts, {recursive:true});
     await visit(pc,'words');
     await pc.locator('[data-act="word-mode"][data-id="library"]').click();
     await pc.waitForSelector('.word-list button');
+    const pickedWord=await pc.locator('.word-list button strong').first().textContent();
     await pc.locator('.word-list button').first().click();
     await pc.locator('[data-act="ask-word"]').click();
     await pc.locator('.prompt-pick').filter({hasText:'论文模板测试'}).click();
     await pc.locator('[data-act="send-word-prompt"]').click();
-    await pc.waitForFunction(()=>document.querySelector('.chat-messages')?.textContent.includes('请解释 apple 在论文方法部分的用法。'));
+    await pc.waitForFunction(word=>document.querySelector('.chat-messages')?.textContent.includes(`请解释 ${word} 在论文方法部分的用法。`),pickedWord);
     const chat=(await api(phone,'/api/chat')).data;
-    assert.equal(chat.at(-1).request.question,'请解释 apple 在论文方法部分的用法。','Selected preset expands current word');
+    assert.equal(chat.at(-1).request.question,`请解释 ${pickedWord} 在论文方法部分的用法。`,'Selected preset expands current word');
     await visit(phone,'settings');
     await phone.locator('#show-name').uncheck();
     await phone.locator('#minimal-mode').check();

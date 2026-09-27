@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -62,12 +63,17 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(246, 247, 242)
-        window.navigationBarColor = Color.rgb(252, 253, 249)
+        window.statusBarColor = Color.rgb(233, 234, 244)
+        window.navigationBarColor = Color.rgb(189, 208, 230)
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(246, 247, 242))
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.rgb(233, 234, 244), Color.rgb(220, 227, 241), Color.rgb(189, 208, 230)))
             fitsSystemWindows = true
         }
         val bar = LinearLayout(this).apply {
@@ -91,7 +97,7 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
         root.addView(progress, LinearLayout.LayoutParams(-1, dp(2)))
         web = WebView(this).apply {
-            setBackgroundColor(Color.rgb(246, 247, 242))
+            setBackgroundColor(Color.TRANSPARENT)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.allowFileAccess = false
@@ -222,8 +228,8 @@ class LanActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         @JavascriptInterface fun setScheduleTheme(schedule: Boolean) {
             runOnUiThread {
                 if (!trusted(web.url.orEmpty())) return@runOnUiThread
-                window.statusBarColor = if (schedule) Color.rgb(233, 234, 244) else Color.rgb(246, 247, 242)
-                window.navigationBarColor = if (schedule) Color.rgb(191, 208, 231) else Color.rgb(252, 253, 249)
+                window.statusBarColor = Color.rgb(233, 234, 244)
+                window.navigationBarColor = Color.rgb(189, 208, 230)
             }
         }
         @JavascriptInterface fun speak(value: String) {

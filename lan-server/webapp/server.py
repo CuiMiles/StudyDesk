@@ -167,6 +167,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(app.dashboard())
         if path == "/api/models":
             return self.respond(app.ai.summary())
+        if path == "/api/search/usage":
+            return self.respond({"accounts": app.tavily.summary() if app.tavily else [],
+                                 "note": "搜索额度为最近一次接口检测和本地调用估算；第三方程序用量可能尚未同步。"})
         if path == "/api/settings":
             return self.respond(app.db.doc("settings"))
         if path == "/api/profile":
@@ -184,8 +187,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(app.exercise_detail(eid, q.get("reference") == "1"))
         if path == "/api/vocabulary":
             return self.respond(app.words(q.get("q", "")[:100], q.get("level", ""), q.get("filter", ""), max(0, int(q.get("offset", 0)))))
+        if path == "/api/vocabulary/books":
+            return self.respond(app.word_books())
+        if path == "/api/vocabulary/lesson-status":
+            return self.respond(app.word_lesson_status())
         if path == "/api/vocabulary/next":
             return self.respond(app.next_word())
+        if path.startswith("/api/vocabulary/") and path.endswith("/lexicon"):
+            return self.respond(app.word_lexicon(urllib.parse.unquote(path[len("/api/vocabulary/"):-len("/lexicon")])))
         if path.startswith("/api/vocabulary/"):
             return self.respond(app.word(urllib.parse.unquote(path.rsplit("/", 1)[1])))
         if path == "/api/notebook":
@@ -212,6 +221,11 @@ class Handler(BaseHTTPRequestHandler):
             choices = {"CC-BY-4.0.txt", "CC-BY-SA-4.0.txt", "wordfreq-NOTICE.txt"}
             if name in choices:
                 return self.file(ROOT / "miniprogram/vocabulary/licenses" / name, "text/plain; charset=utf-8")
+        if path == "/preview/words":
+            preview = Path(__file__).parent / "runtime/word_preview.html"
+            if preview.is_file():
+                return self.file(preview, "text/html; charset=utf-8")
+            return self.respond({"error": "词义样例尚未生成"}, 404)
         files = {"/": "index.html", "/index.html": "index.html", "/install": "install.html", "/app.js": "app.js", "/style.css": "style.css",
                  "/icon.svg": "icon.svg", "/manifest.webmanifest": "manifest.webmanifest"}
         if path in files:
@@ -222,6 +236,10 @@ class Handler(BaseHTTPRequestHandler):
         app = self.app
         if path == "/api/settings":
             return self.respond(app.settings(body))
+        if path == "/api/vocabulary/books":
+            return self.respond(app.select_word_book(body))
+        if path.startswith("/api/vocabulary/") and path.endswith("/lesson"):
+            return self.respond(app.word_lesson(urllib.parse.unquote(path[len("/api/vocabulary/"):-len("/lesson")])))
         if path == "/api/profile":
             return self.respond(app.save_profile(body))
         if path == "/api/word-prompts":

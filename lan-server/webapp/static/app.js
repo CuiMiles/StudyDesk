@@ -33,10 +33,10 @@ const icon = (name, small=false) => `<svg class="i${small?' sm':''}" viewBox="0 
 const btn = (label, action, opts={}) => `<button type="button" class="btn ${opts.cls||''}" data-act="${action}" ${opts.id?`data-id="${esc(opts.id)}"`:''} ${opts.disabled?'disabled':''}>${opts.icon?icon(opts.icon,true):''}${label}</button>`;
 const ibtn = (name, label, action, id='', selected=false) => `<button type="button" class="icon-btn${selected?' selected':''}" aria-label="${esc(label)}" title="${esc(label)}" data-act="${action}" data-id="${esc(id)}">${icon(name)}</button>`;
 const labels = {schedule:'课表',home:'今日',write:'写作',words:'背词',notebook:'积累',settings:'设置',chat:'AI 教练'};
-const navs = [['schedule','calendar','课表'],['home','home','今日'],['write','pen','写作'],['words','book','背词'],['notebook','notes','积累']];
+const navs = [['schedule','calendar','课表'],['home','home','今日'],['write','pen','写作'],['words','book','背词'],['notebook','notes','积累'],['chat','spark','AI']];
 const levels = {starter:'基础句子',core:'进阶表达',paragraph:'短段落'};
 const categories = ['研究动机','方法介绍','实验结果','实验分析','消融分析','段落衔接'];
-let S = {page:'schedule', routeId:'',dashboard:null,catalog:[],exercise:null,word:null,wordRevealed:false,wordZh:false,wordMode:'study',wordQuery:'',wordFilter:'',wordLevel:'',wordOffset:0,notebook:[],noteFilter:'all',noteQuery:'',week:0,selectedWeekday:null,schedule:null,version:0,online:true,dirty:false,draftSaving:null,draftConflict:false,level:'',category:'',renderId:0,settings:null,profile:null,wordPrompts:null};
+let S = {page:'schedule', routeId:'',dashboard:null,catalog:[],exercise:null,word:null,wordRevealed:false,wordZh:false,wordMode:'study',wordQuery:'',wordFilter:'',wordLevel:'',wordOffset:0,wordBooks:null,lessonEnabled:false,notebook:[],noteFilter:'all',noteQuery:'',week:0,selectedWeekday:null,schedule:null,version:0,online:true,dirty:false,draftSaving:null,draftConflict:false,level:'',category:'',renderId:0,settings:null,profile:null,wordPrompts:null,searchUsage:null};
 const pollers = new Map();
 let toastTimer, draftTimer, searchTimer;
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -54,7 +54,7 @@ async function api(path, body){
   return result;
 }
 function shell(){
-  $('#app').innerHTML=`<div class="app-shell"><aside class="sidebar"><a class="brand" href="#/schedule"><span class="brand-mark">S</span><span>StudyDesk</span></a><nav class="nav">${navs.map(([id,i])=>`<button data-act="nav" data-id="${id}" data-nav="${id}">${icon(i)}${labels[id]}<span class="nav-dot hidden"></span></button>`).join('')}<button data-act="nav" data-id="chat" data-nav="chat">${icon('spark')}AI 教练</button></nav><div class="sidebar-bottom"><div class="profile"><span class="identity hidden" id="profile-identity"><span class="avatar" id="profile-avatar"></span><strong id="profile-name"></strong></span>${ibtn('settings','设置','nav','settings')}</div></div></aside><main class="main"><header class="topbar"><div class="breadcrumb"><b id="page-crumb">课表</b></div><div class="top-actions"><span class="sync-pill" id="sync-status" role="status" aria-label="正在连接" title="正在连接"></span><span class="avatar hidden" id="header-avatar"></span>${ibtn('settings','设置','nav','settings')}</div></header><div id="view" aria-live="polite"></div></main><nav class="mobile-nav" aria-label="主导航">${navs.map(([id,i,l])=>`<button data-act="nav" data-id="${id}" data-nav="${id}">${icon(i)}<span>${l}</span></button>`).join('')}</nav></div>`;
+  $('#app').innerHTML=`<div class="app-shell"><aside class="sidebar"><a class="brand" href="#/schedule"><span class="brand-mark">S</span><span>StudyDesk</span></a><nav class="nav">${navs.map(([id,i])=>`<button data-act="nav" data-id="${id}" data-nav="${id}">${icon(i)}${labels[id]}<span class="nav-dot hidden"></span></button>`).join('')}</nav><div class="sidebar-bottom"><div class="profile"><span class="identity hidden" id="profile-identity"><span class="avatar" id="profile-avatar"></span><strong id="profile-name"></strong></span>${ibtn('settings','设置','nav','settings')}</div></div></aside><main class="main"><header class="topbar"><div class="breadcrumb"><b id="page-crumb">课表</b></div><div class="top-actions"><span class="sync-pill" id="sync-status" role="status" aria-label="正在连接" title="正在连接"></span><span class="avatar hidden" id="header-avatar"></span>${ibtn('settings','设置','nav','settings')}</div></header><div id="view" aria-live="polite"></div></main><nav class="mobile-nav" aria-label="主导航">${navs.map(([id,i,l])=>`<button data-act="nav" data-id="${id}" data-nav="${id}">${icon(i)}<span>${l}</span></button>`).join('')}</nav></div>`;
 }
 function applyProfileUI(){
   const p=S.profile?.value||{displayName:'',showName:false,minimalMode:true};
@@ -64,11 +64,20 @@ function applyProfileUI(){
   $('#header-avatar')?.classList.toggle('hidden',!visible);
   if(visible){$('#profile-name').textContent=p.displayName;$('#profile-avatar').textContent=p.displayName[0];$('#header-avatar').textContent=p.displayName[0];}
 }
-const pageHead=(title,sub='',extra='')=>`<div class="page-head"><div><h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div>${extra}</div>`;
+const pageHead=(title,sub='',extra='')=>`<div class="page-head"><div><h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div><div class="page-head-actions">${extra}${S.page==='settings'?'':`<span class="page-settings">${ibtn('settings','设置','nav','settings')}</span>`}</div></div>`;
 const empty=(title,description='',i='leaf')=>`<div class="empty">${icon(i)}<strong>${title}</strong>${description}</div>`;
 const dateLabel=d=>new Date(d+'T12:00:00+08:00').toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Shanghai'});
 const timeLabel=d=>new Date(d).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Shanghai'});
-function setView(html){$('#view').innerHTML=html;}
+let pendingNavSwipe=0;
+function setView(html){
+  const view=$('#view');view.innerHTML=html;
+  if(pendingNavSwipe&&!html.includes('class="skeleton"')){
+    view.classList.remove('nav-enter-left','nav-enter-right');
+    void view.offsetWidth;
+    view.classList.add(pendingNavSwipe>0?'nav-enter-right':'nav-enter-left');
+    pendingNavSwipe=0;
+  }
+}
 async function go(page,id=''){
   if(S.page==='write' && S.dirty){try{await saveDraft();}catch(e){toast(e.message);}}
   if(location.hash===`#/${page}${id?'/'+encodeURIComponent(id):''}`)await render();
@@ -77,7 +86,7 @@ async function go(page,id=''){
 async function render(){
   const rid=++S.renderId;
   const parts=location.hash.slice(2).split('/');S.page=labels[parts[0]]?parts[0]:'schedule';document.body.classList.toggle('schedule-page',S.page==='schedule');S.routeId=decodeURIComponent(parts[1]||'');
-  $('meta[name="theme-color"]')?.setAttribute('content',S.page==='schedule'?'#e9eaf4':'#f6f7f2');
+  $('meta[name="theme-color"]')?.setAttribute('content','#e9eaf4');
   window.StudyDeskNative?.setScheduleTheme?.(S.page==='schedule');
   $$('.nav [data-nav],.mobile-nav [data-nav]').forEach(e=>{const active=e.dataset.nav===S.page;e.classList.toggle('active',active);e.setAttribute('aria-current',active?'page':'false');$('.nav-dot',e)?.classList.toggle('hidden',!active);});
   $('#page-crumb').textContent=labels[S.page];
@@ -91,7 +100,7 @@ async function render(){
     if(S.page==='words'){await loadWords(rid);}
     if(S.page==='schedule'){const d=await api('/api/schedule'+(S.week?'?week='+S.week:''));if(rid!==S.renderId)return;S.schedule=d;S.week=d.week;renderSchedule();}
     if(S.page==='notebook'){const d=await api('/api/notebook');if(rid!==S.renderId)return;S.notebook=d;renderNotebook();}
-    if(S.page==='settings'){const [settings,models,prompts]=await Promise.all([api('/api/settings'),api('/api/models'),api('/api/word-prompts')]);if(rid!==S.renderId)return;S.settings=settings;S.models=models;S.wordPrompts=prompts;renderSettings();}
+    if(S.page==='settings'){const [settings,models,prompts,searchUsage]=await Promise.all([api('/api/settings'),api('/api/models'),api('/api/word-prompts'),api('/api/search/usage')]);if(rid!==S.renderId)return;S.settings=settings;S.models=models;S.wordPrompts=prompts;S.searchUsage=searchUsage;renderSettings();}
     if(S.page==='chat'){const h=await api('/api/chat');if(rid!==S.renderId)return;renderChat(h);}
   }catch(e){if(rid===S.renderId)setView(pageHead('暂时没有连上')+`<div class="error-banner">${esc(e.message)}</div>${btn('重新连接','reload',{icon:'refresh'})}`);}
 }
@@ -127,7 +136,7 @@ function renderWriting(){
   setView(pageHead('写作练习','',btn('题库','exercise-library',{cls:'secondary small',icon:'list'}))+`
     <div class="toolbar"><select id="exercise-level" aria-label="练习难度"><option value="">循序渐进</option>${Object.entries(levels).map(([k,v])=>`<option value="${k}" ${S.level===k?'selected':''}>${v}</option>`).join('')}</select><select id="exercise-category" aria-label="写作主题"><option value="">所有表达场景</option>${categories.map(c=>`<option ${S.category===c?'selected':''}>${c}</option>`).join('')}</select><span class="grow"></span>${btn('下一题','next-exercise',{cls:'ghost',icon:'arrow'})}</div>
     <div class="writing-grid"><div><section class="prompt-card"><div class="flex between"><div class="flex wrap"><span class="tag green">${esc(e.category)}</span><span class="tag">${levels[e.level]}</span></div><span class="task-number">${String(num).padStart(2,'0')} / ${S.catalog.length}</span></div><h2>${esc(e.zh)}</h2><div class="source-line">${icon('book',true)}灵感来自 ${esc(e.paper.short)} · ${esc(e.paper.venue)} <span>·</span><button class="btn ghost small" data-act="paper-source" data-id="${e.paperId}">查看来源 ${icon('external',true)}</button></div></section>
-    <section class="panel editor-panel"><div class="editor-label"><span>Your English version</span><small id="draft-state">已同步</small></div>${S.localRecovery?`<div class="error-banner">发现此设备尚未同步的草稿。${btn('查看并恢复','recover-draft',{cls:'ghost small'})}</div>`:''}<textarea id="translation" class="translation-input" maxlength="12000" aria-label="你的英文译文" spellcheck="true" placeholder="输入英文译文">${esc(S.draftText)}</textarea><div class="editor-footer"><small id="word-count">${countWords(S.draftText)} words</small><div class="flex">${btn('一点提示','hint',{cls:'ghost small',icon:'eye'})}${btn(attempt?'点评这次重写':'请老师点评','submit-review',{icon:'spark',disabled:!!e.pending})}</div></div><div id="hint-area"></div></section>
+    <section class="panel editor-panel"><div class="editor-label"><span>我的译文</span><small id="draft-state">已同步</small></div>${S.localRecovery?`<div class="error-banner">发现此设备尚未同步的草稿。${btn('查看并恢复','recover-draft',{cls:'ghost small'})}</div>`:''}<textarea id="translation" class="translation-input" maxlength="12000" aria-label="你的英文译文" spellcheck="true" placeholder="输入英文译文">${esc(S.draftText)}</textarea><div class="editor-footer"><small id="word-count">${countWords(S.draftText)} words</small><div class="flex">${btn('一点提示','hint',{cls:'ghost small',icon:'eye'})}${btn(attempt?'点评这次重写':'请老师点评','submit-review',{icon:'spark',disabled:!!e.pending})}</div></div><div id="hint-area"></div></section>
     <div id="job-state">${e.pending?busyHtml('正在读你的译文，稍后给出具体反馈…'):''}</div><div id="feedback">${attempt?feedbackHtml(attempt):`${btn('查看参考表达','reference',{cls:'ghost small',icon:'book'})}`}</div>
     </div><aside class="writing-aside"><section class="aside-card">${btn('问写作教练','ask-about-exercise',{cls:'secondary small',icon:'chat'})}</section><section class="aside-card"><h3>这道题的足迹</h3>${e.attempts.length?e.attempts.map((a,i)=>`<button class="history-row" data-act="show-attempt" data-id="${a.id}">${i===0?'最近一次':'查看更早练习'}<small>${timeLabel(a.created)} · ${totalScore(a.feedback)}/100</small></button>`).join(''):'<p>暂无点评</p>'}</section></aside></div>`);
 }
@@ -199,17 +208,19 @@ async function submitReview(){
 }
 
 async function loadWords(rid){
+  const [books,lesson]=await Promise.all([api('/api/vocabulary/books'),api('/api/vocabulary/lesson-status')]);
+  if(rid!==S.renderId)return;S.wordBooks=books;S.lessonEnabled=lesson.enabled;
   if(S.wordMode==='study'){
     const [queue,settings]=await Promise.all([api('/api/vocabulary/next'),api('/api/settings')]);
     if(rid!==S.renderId)return;S.wordQueue=queue;S.word=queue.word;S.wordRevealed=!!queue.revealed;S.wordZh=false;S.settings=settings;renderWords();
     if(S.word&&settings.value.autoSpeak)speak(S.word.word,true);
   }else{await loadWordList(rid);}
 }
-function wordsHead(){return pageHead('单词学习')+`<div class="toolbar"><div class="tabs"><button data-act="word-mode" data-id="study" class="${S.wordMode==='study'?'active':''}">今日学习</button><button data-act="word-mode" data-id="library" class="${S.wordMode==='library'?'active':''}">我的词库</button></div></div>`;}
+function wordsHead(){return `<div class="word-head">${pageHead('单词学习')}<select id="word-book" aria-label="选择词书">${(S.wordBooks?.books||[]).map(b=>`<option value="${esc(b.id)}" ${S.wordBooks.selected===b.id?'selected':''}>${esc(b.title)}</option>`).join('')}</select></div><div class="toolbar"><div class="tabs"><button data-act="word-mode" data-id="study" class="${S.wordMode==='study'?'active':''}">今日学习</button><button data-act="word-mode" data-id="library" class="${S.wordMode==='library'?'active':''}">我的词库</button></div></div>`;}
 function examplesHtml(word){const example=word.senses.flatMap(s=>s.examples||[])[0];if(!example)return '';const escaped=esc(example);const target=esc(word.word).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return `<div class="example">“${escaped.replace(new RegExp(`\\b(${target})\\b`,'gi'),'<strong>$1</strong>')}”</div>`;}
 function wordCard(w,revealed=false,detail=false){
   const p=w.progress||{},known=p.recognition||0;
-  return `<section class="word-card"><div class="word-toolbar"><span class="tag">${esc(w.level)} · ${p.difficult?'重难词':p.familiar?'熟词':p.last?'复习词':'新词'}</span><div class="flex">${ibtn('translate','显示或隐藏中文','word-chinese',w.id,S.wordZh)}${ibtn('star',p.favorite?'取消收藏':'收藏单词','word-favorite',w.id,p.favorite)}${ibtn('audio','朗读单词','speak',w.word)}</div></div><div class="word-center"><div class="word-heading"><h2>${esc(w.word)}</h2><span class="recognition" aria-label="认知程度 ${known}/3">${[1,2,3].map(n=>`<i class="${known>=n?'on':''}"></i>`).join('')}</span></div>${w.ipa?`<p class="ipa">/${esc(w.ipa)}/</p>`:''}${S.wordZh?`<p class="hint">${esc(w.zh||'该词暂无中文释义，可查看英文解释或向教练提问。')}</p>`:''}${examplesHtml(w)}</div>${revealed?`<div class="definition">${w.senses.slice(0,detail?30:3).map(s=>`<p><span class="pos">${esc(s.pos)}.</span>${esc(s.definition)}</p>${detail?(s.examples||[]).map(e=>`<p class="muted" style="font-size:12px">${esc(e)}</p>`).join(''):''}`).join('')}${w.deep?`<details><summary class="help-text">展开深度学习笔记（本地预制内容）</summary><p class="help-text">教学笔记 ${w.deep.model?'· '+esc(w.deep.model):''}</p>${w.deep.blocks.map(b=>`<div class="mini-note"><strong>${esc(b.title)}</strong><div class="deep-content">${richText(b.en)}</div>${S.wordZh?`<div class="deep-content hint">${richText(b.zh)}</div>`:''}</div>`).join('')}</details>`:''}${!detail?btn('全部词义 / 拼写','word-detail',{id:w.id,cls:'ghost small',icon:'book'}):''}</div>`:''}</section>`;
+  return `<section class="word-card"><div class="word-toolbar"><span class="tag">${esc(w.level)} · ${p.difficult?'重难词':p.familiar?'熟词':p.last?'复习词':'新词'}</span><div class="flex">${ibtn('translate','显示或隐藏中文','word-chinese',w.id,S.wordZh)}${ibtn('star',p.favorite?'取消收藏':'收藏单词','word-favorite',w.id,p.favorite)}${ibtn('audio','朗读单词','speak',w.word)}</div></div><div class="word-center"><div class="word-heading"><h2>${esc(w.word)}</h2><span class="recognition" aria-label="认知程度 ${known}/3">${[1,2,3].map(n=>`<i class="${known>=n?'on':''}"></i>`).join('')}</span></div>${w.ipa?`<p class="ipa">/${esc(w.ipa)}/</p>`:''}${S.wordZh?`<p class="hint">${esc(w.zh||'该词暂无中文释义，可查看英文解释或向教练提问。')}</p>`:''}${examplesHtml(w)}</div>${revealed?`<div class="definition">${w.senses.slice(0,detail?30:3).map(s=>`<p><span class="pos">${esc(s.pos)}.</span>${esc(s.definition)}</p>${detail?(s.examples||[]).map(e=>`<p class="muted" style="font-size:12px">${esc(e)}</p>`).join(''):''}`).join('')}${w.deep?`<details><summary class="help-text">展开深度学习笔记（本地预制内容）</summary><p class="help-text">教学笔记 ${w.deep.model?'· '+esc(w.deep.model):''}</p>${w.deep.blocks.map(b=>`<div class="mini-note"><strong>${esc(b.title)}</strong><div class="deep-content">${richText(b.en)}</div>${S.wordZh?`<div class="deep-content hint">${richText(b.zh)}</div>`:''}</div>`).join('')}</details>`:''}${S.lessonEnabled?btn('画面解析','word-lesson',{id:w.id,cls:'secondary small',icon:'spark'}):''}${!detail?btn('全部词义 / 拼写','word-detail',{id:w.id,cls:'ghost small',icon:'book'}):''}</div>`:''}</section>`;
 }
 function renderWords(){
   const w=S.word,q=S.wordQueue;
@@ -218,9 +229,25 @@ function renderWords(){
 async function loadWordList(rid=S.renderId){
   const q=new URLSearchParams({q:S.wordQuery,level:S.wordLevel,filter:S.wordFilter,offset:S.wordOffset});
   const d=await api('/api/vocabulary?'+q);if(rid!==S.renderId)return;S.wordList=d;
-  setView(wordsHead()+`<div class="toolbar"><input id="word-search" class="notebook-search" placeholder="搜索 10,000 个单词…" aria-label="搜索单词" value="${esc(S.wordQuery)}"><select id="word-level" aria-label="词汇级别"><option value="">全部级别</option>${['L1','L2','L3','L4'].map(l=>`<option ${S.wordLevel===l?'selected':''}>${l}</option>`).join('')}</select><select id="word-filter" aria-label="词库分类">${[['','全部词库'],['favorite','我的收藏'],['difficult','重难词'],['familiar','熟词本'],['due','待复习']].map(([v,l])=>`<option value="${v}" ${S.wordFilter===v?'selected':''}>${l}</option>`).join('')}</select></div><p class="help-text">共 ${d.total} 个单词</p><div class="word-list">${d.items.map(w=>`<button data-act="word-detail" data-id="${esc(w.id)}"><div class="grow"><strong>${esc(w.word)}</strong><small>${w.level}${w.progress.favorite?' · 已收藏':''}${w.progress.familiar?' · 熟词':''}</small></div><span class="recognition" aria-label="认知程度 ${w.progress.recognition||0}/3">${[1,2,3].map(n=>`<i class="${(w.progress.recognition||0)>=n?'on':''}"></i>`).join('')}</span>${icon('right',true)}</button>`).join('')}</div>${!d.items.length?empty('没有找到匹配的词','试试其他拼写或分类。','search'):''}<div class="pagination">${btn('上一页','word-page',{id:'-1',cls:'secondary small',disabled:S.wordOffset===0})}<span class="tiny-label">${Math.floor(S.wordOffset/60)+1} / ${Math.max(1,Math.ceil(d.total/60))}</span>${btn('下一页','word-page',{id:'1',cls:'secondary small',disabled:S.wordOffset+60>=d.total})}</div>`);
+  setView(wordsHead()+`<div class="toolbar"><input id="word-search" class="notebook-search" placeholder="搜索当前词书…" aria-label="搜索单词" value="${esc(S.wordQuery)}"><select id="word-level" aria-label="词汇级别"><option value="">全部级别</option>${['L1','L2','L3','L4'].map(l=>`<option ${S.wordLevel===l?'selected':''}>${l}</option>`).join('')}</select><select id="word-filter" aria-label="词库分类">${[['','全部词库'],['favorite','我的收藏'],['difficult','重难词'],['familiar','熟词本'],['due','待复习']].map(([v,l])=>`<option value="${v}" ${S.wordFilter===v?'selected':''}>${l}</option>`).join('')}</select></div><p class="help-text">共 ${d.total} 个单词</p><div class="word-list">${d.items.map(w=>`<button data-act="word-detail" data-id="${esc(w.id)}"><div class="grow"><strong>${esc(w.word)}</strong><small>${w.level}${w.progress.favorite?' · 已收藏':''}${w.progress.familiar?' · 熟词':''}</small></div><span class="recognition" aria-label="认知程度 ${w.progress.recognition||0}/3">${[1,2,3].map(n=>`<i class="${(w.progress.recognition||0)>=n?'on':''}"></i>`).join('')}</span>${icon('right',true)}</button>`).join('')}</div>${!d.items.length?empty('没有找到匹配的词','试试其他拼写或分类。','search'):''}<div class="pagination">${btn('上一页','word-page',{id:'-1',cls:'secondary small',disabled:S.wordOffset===0})}<span class="tiny-label">${Math.floor(S.wordOffset/60)+1} / ${Math.max(1,Math.ceil(d.total/60))}</span>${btn('下一页','word-page',{id:'1',cls:'secondary small',disabled:S.wordOffset+60>=d.total})}</div>`);
 }
-async function showWord(id){S.detailWord=await api('/api/vocabulary/'+encodeURIComponent(id));S.wordZh=false;modal('词汇卡片',wordCard(S.detailWord,true,true)+`<div class="divider"></div><label class="field">拼写一下 <input id="spelling-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="输入拼写"></label><div id="spelling-result"></div><div class="form-actions">${btn('检查拼写','check-spelling',{cls:'secondary'})}${btn('重新加入复习','word-relearn',{id,cls:'secondary'})}${btn('问教练用法','ask-word',{id,icon:'chat'})}</div>`);}
+function lexiconHtml(result){
+  const source=name=>result.sources[name]?.data||{};
+  const ec=source('ecdict'),dictionary=source('dictionaryapi').entries?.[0]||{},tatoeba=source('tatoeba').sentences||[],datamuse=source('datamuse');
+  const lines=(ec.translation||'').split(/\n/).filter(Boolean).slice(0,3);
+  const definitions=(dictionary.meanings||[]).flatMap(m=>(m.definitions||[]).slice(0,1).map(d=>({pos:m.pos,text:d.definition}))).slice(0,3);
+  return `<section class="lexicon-card"><h3>词典补充</h3>${dictionary.phonetic?`<p class="lexicon-ipa">/${esc(dictionary.phonetic)}/</p>`:ec.phonetic?`<p class="lexicon-ipa">${esc(ec.phonetic)}</p>`:''}${lines.length?`<div class="lexicon-section"><strong>常见词义</strong>${lines.map(v=>`<p>${esc(v)}</p>`).join('')}</div>`:''}${definitions.length?`<div class="lexicon-section"><strong>英文解释</strong>${definitions.map(v=>`<p><span class="pos">${esc(v.pos)}</span> ${esc(v.text)}</p>`).join('')}</div>`:ec.definition?`<div class="lexicon-section"><strong>英文解释</strong><p>${esc(ec.definition)}</p></div>`:''}${tatoeba.length?`<div class="lexicon-section"><strong>真实例句</strong>${tatoeba.slice(0,2).map(v=>`<p>${esc(v.text)} <a href="https://tatoeba.org/en/sentences/show/${Number(v.id)}" target="_blank" rel="noreferrer" aria-label="Tatoeba 例句来源">↗</a></p>`).join('')}</div>`:''}${(datamuse.synonyms||[]).length?`<div class="lexicon-section"><strong>联想词</strong><p>${datamuse.synonyms.slice(0,5).map(esc).join(' · ')}</p></div>`:''}<small>ECDICT · DictionaryAPI.dev · Tatoeba（CC BY 2.0 FR）· Datamuse；未响应的来源会稍后重试。</small></section>`;
+}
+function wordLessonHtml(data){
+  const l=data.lesson;
+  return `<div class="lesson-card"><section><h3>1 · 画面锚定</h3><p>${esc(l.image)}</p></section><section><h3>2 · 近义词光谱</h3>${l.spectrum.map(v=>`<p><strong>${esc(v.word)}</strong> ${esc(v.contrast)}</p>`).join('')}</section><section><h3>3 · 语域感知</h3><p>${esc(l.register)}</p>${l.contexts.map(v=>`<p class="lesson-context">${esc(v.example)}<small>${esc(v.note)}</small></p>`).join('')}</section><section><h3>4 · 语义韵</h3><p>${esc(l.tone)}</p>${l.collocations.map(v=>`<p><strong>${esc(v.phrase)}</strong> ${esc(v.note)}</p>`).join('')}</section><section><h3>5 · 联想网络</h3><p>${esc(l.network)}</p></section><section class="lesson-final"><h3>综合示例</h3><p lang="en">${esc(l.integrated.english)}</p><small>${esc(l.integrated.chinese)}</small></section></div>`;
+}
+async function showWord(id){
+  S.detailWord=await api('/api/vocabulary/'+encodeURIComponent(id));S.wordZh=false;
+  modal('词汇卡片',wordCard(S.detailWord,true,true)+`<div id="lexicon-info" class="lexicon-loading">正在查询本地词典…</div><div class="divider"></div><label class="field">拼写一下 <input id="spelling-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="输入拼写"></label><div id="spelling-result"></div><div class="form-actions">${btn('检查拼写','check-spelling',{cls:'secondary'})}${btn('重新加入复习','word-relearn',{id,cls:'secondary'})}${btn('问教练用法','ask-word',{id,icon:'chat'})}</div>`);
+  try{const result=await api('/api/vocabulary/'+encodeURIComponent(id)+'/lexicon');if($('#modal').open&&S.detailWord?.id===id&&$('#lexicon-info'))$('#lexicon-info').innerHTML=lexiconHtml(result);}
+  catch(error){if($('#lexicon-info'))$('#lexicon-info').textContent='词典暂不可用；原有词卡仍可学习。';}
+}
 function speak(word,automatic=false){
   if(window.StudyDeskNative?.speak){window.StudyDeskNative.speak(word);return;}
   if(!('speechSynthesis' in window)){if(!automatic)toast('当前浏览器不支持朗读，请使用 Android App 或支持语音的浏览器。');return;}
@@ -251,6 +278,14 @@ function courseColor(name){
   const match=named.find(([part])=>name.includes(part));
   return schedulePalette[match?match[1]:[...name].reduce((n,c)=>(n*31+c.charCodeAt(0))%10000,0)%schedulePalette.length];
 }
+function courseLabel(name){
+  const short=[['材料科学进展','材料进展'],['马克思主义与当代科技','马克思主义'],
+    ['数据库系统原理与应用','数据库系统'],['数据库前沿技术','数据库前沿'],
+    ['深度学习及应用','深度学习'],['分布式系统原理与应用','分布式系统'],
+    ['工程伦理','工程伦理'],['日语二外','日语二外'],['体育','体育']];
+  return short.find(([full])=>name.includes(full))?.[1]||name.replace(/（[^）]*）/g,'').slice(0,7);
+}
+function roomLabel(room){return room.includes('羽毛球')?'羽毛球场':room.includes('雨课堂')?'线上':room;}
 function placeScheduleCourses(entries){
   for(const day of [...new Set(entries.map(e=>e.date))]){
     const sorted=entries.filter(e=>e.date===day).sort((a,b)=>a.start-b.start||b.end-a.end);
@@ -274,25 +309,63 @@ function placeScheduleCourses(entries){
     finish();
   }
 }
-function renderSchedule(){
-  const d=S.schedule,today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+function scheduleNowFraction(d,today){
+  if(!d.days.includes(today))return null;
+  const clock=new Date(Date.now()+8*3600000),minute=clock.getUTCHours()*60+clock.getUTCMinutes();
+  const slots=d.times.map(range=>range.split('-').map(t=>{const [h,m]=t.split(':').map(Number);return h*60+m;}));
+  if(minute<slots[0][0]||minute>slots.at(-1)[1])return null;
+  for(let i=0;i<slots.length;i++){
+    const [start,end]=slots[i];
+    if(minute<=end)return i+(minute-start)/(end-start);
+    if(i+1<slots.length&&minute<slots[i+1][0])return i+1;
+  }
+  return 11;
+}
+function scheduleMarkup(d){
+  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
   if(!S.selectedWeekday)S.selectedWeekday=(new Date(today+'T12:00:00+08:00').getUTCDay()||7);
   const selectedDate=d.days[S.selectedWeekday-1],shortDays='一二三四五六日';
   const entries=d.items.map((o,index)=>({...o,index,start:o.sections[0],end:o.sections.at(-1)}));
   placeScheduleCourses(entries);
   const headers=d.days.map((date,i)=>`<button type="button" class="week-day ${i+1===S.selectedWeekday?'selected':''} ${date===today?'today':''}" style="grid-column:${i+2}" data-act="select-weekday" data-id="${i+1}" aria-pressed="${i+1===S.selectedWeekday}" aria-label="周${shortDays[i]} ${Number(date.slice(5,7))}月${Number(date.slice(8))}日${d.holidays.includes(date)?'，停课日':''}"><span>${shortDays[i]}</span><strong>${Number(date.slice(8))}</strong>${d.holidays.includes(date)?'<em aria-hidden="true">休</em>':''}</button>`).join('');
   const axis=d.times.map((time,i)=>`<div class="week-period" style="grid-row:${i+2}"><strong>${i+1}</strong><small>${esc(time.split('-')[0])}<br>${esc(time.split('-')[1])}</small></div>`).join('');
-  const lanes=d.days.map((date,i)=>`<div class="week-lane ${i+1===S.selectedWeekday?'selected':''}" style="grid-column:${i+2}" aria-hidden="true"></div>`).join('');
+  const lanes=d.days.map((date,i)=>`<div class="week-lane ${i+1===S.selectedWeekday?'selected':''} ${date===today?'today':''}" style="grid-column:${i+2}" aria-hidden="true"></div>`).join('');
   const cards=entries.map(o=>{
     const [start,end]=courseColor(o.course.name),rowSpan=o.end-o.start+1;
-    return `<button type="button" class="week-course" style="grid-column:${d.days.indexOf(o.date)+2};grid-row:${o.start+1}/span ${rowSpan};--slot-left:${o.slot/o.slotCount*100}%;--slot-width:${100/o.slotCount}%;--course-start:${start};--course-end:${end}" data-act="course-detail" data-id="${o.index}" aria-label="${esc(o.course.name)}，${o.sections.join('、')} 节${o.room?'，'+esc(o.room):''}" title="${esc(o.course.name)} · ${o.sections.join('、')} 节${o.room?' · '+esc(o.room):''}"><strong>${esc(o.course.name)}</strong>${o.room?`<small class="course-room">@${esc(o.room)}</small>`:''}${o.conflicts>1?'<span class="conflict-dot" aria-label="课程冲突">!</span>':''}</button>`;
+    return `<button type="button" class="week-course" style="grid-column:${d.days.indexOf(o.date)+2};grid-row:${o.start+1}/span ${rowSpan};--slot-left:${o.slot/o.slotCount*100}%;--slot-width:${100/o.slotCount}%;--course-start:${start};--course-end:${end}" data-act="course-detail" data-id="${o.index}" aria-label="${esc(o.course.name)}，${o.sections.join('、')} 节${o.room?'，'+esc(o.room):''}" title="${esc(o.course.name)} · ${o.sections.join('、')} 节${o.room?' · '+esc(o.room):''}"><strong>${esc(courseLabel(o.course.name))}</strong>${o.room?`<small class="course-room">${esc(roomLabel(o.room))}</small>`:''}${o.conflicts>1?'<span class="conflict-dot" aria-label="课程冲突">!</span>':''}</button>`;
   }).join('');
   const current=d.days.includes(today);
-  setView(`<section class="schedule-screen"><div class="schedule-heading"><div class="schedule-heading-main"><h1><span class="schedule-week-select"><select id="schedule-week" aria-label="选择教学周">${Array.from({length:18},(_,i)=>`<option value="${i+1}" ${d.week===i+1?'selected':''}>第${i+1}周</option>`).join('')}</select></span><span>周${shortDays[S.selectedWeekday-1]}</span></h1><div class="schedule-subdate">${Number(selectedDate.slice(0,4))}/${Number(selectedDate.slice(5,7))}/${Number(selectedDate.slice(8))}<span class="schedule-week-status ${current?'current':''}">${current?'本周':'非本周'}</span></div></div><div class="schedule-head-actions">${ibtn('clock','回到本周','current-week')}${ibtn('list','管理课程','manage-courses')}${ibtn('settings','设置','nav','settings')}</div></div>
-    <div class="week-board" aria-label="第 ${d.week} 周课表"><div class="week-grid"><div class="week-corner">${Number(d.days[0].slice(5,7))}<span>月</span></div>${headers}${lanes}${axis}${cards}</div></div></section>`);
+  const fraction=scheduleNowFraction(d,today);
+  return `<section class="schedule-screen"><div class="schedule-heading"><div class="schedule-heading-main"><h1><span class="schedule-week-select"><select id="schedule-week" aria-label="选择教学周">${Array.from({length:18},(_,i)=>`<option value="${i+1}" ${d.week===i+1?'selected':''}>第${i+1}周</option>`).join('')}</select></span><span>周${shortDays[S.selectedWeekday-1]}</span></h1><div class="schedule-subdate">${Number(selectedDate.slice(0,4))}/${Number(selectedDate.slice(5,7))}/${Number(selectedDate.slice(8))}<span class="schedule-week-status ${current?'current':''}">${current?'本周':'非本周'}</span></div></div><div class="schedule-head-actions">${ibtn('clock','回到本周','current-week')}${ibtn('list','管理课程','manage-courses')}${ibtn('settings','设置','nav','settings')}</div></div>
+    <div class="week-board" aria-label="第 ${d.week} 周课表"><div class="week-grid"><div class="week-corner">${Number(d.days[0].slice(5,7))}<span>月</span></div>${headers}${lanes}${axis}${cards}${fraction===null?'':`<div class="week-now" style="--now-offset:${fraction};--today-column:${d.days.indexOf(today)+2}" aria-label="当前时间位置"></div>`}</div></div></section>`;
+}
+function renderSchedule(){
+  setView(scheduleMarkup(S.schedule));
   const board=$('.week-board');let start=null;
   board.addEventListener('touchstart',event=>{if(event.touches.length===1)start={x:event.touches[0].clientX,y:event.touches[0].clientY};},{passive:true});
-  board.addEventListener('touchend',event=>{if(!start||!event.changedTouches.length)return;const dx=event.changedTouches[0].clientX-start.x,dy=event.changedTouches[0].clientY-start.y;start=null;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3){const next=Math.max(1,Math.min(18,S.week+(dx<0?1:-1)));if(next!==S.week){S.week=next;render().catch(error=>toast(error.message));}}},{passive:true});
+  board.addEventListener('touchend',event=>{if(!start||!event.changedTouches.length)return;const dx=event.changedTouches[0].clientX-start.x,dy=event.changedTouches[0].clientY-start.y;start=null;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3)changeWeek(S.week+(dx<0?1:-1)).catch(error=>toast(error.message));},{passive:true});
+}
+let weekSliding=false;
+async function changeWeek(week,animate=true){
+  const next=Math.max(1,Math.min(18,week));
+  if(next===S.week||weekSliding||S.page!=='schedule')return;
+  weekSliding=true;
+  const renderId=S.renderId,previous=S.schedule,forward=next>S.week;
+  try{
+    const incoming=await api('/api/schedule?week='+next);
+    if(renderId!==S.renderId||S.page!=='schedule')return;
+    const oldHtml=$('.schedule-screen')?.outerHTML||scheduleMarkup(previous);
+    if(!animate||matchMedia('(prefers-reduced-motion: reduce)').matches){S.schedule=incoming;S.week=next;renderSchedule();return;}
+    const track=document.createElement('div');track.className='week-slide-track';
+    track.innerHTML=forward?`<div class="week-slide-page">${oldHtml}</div><div class="week-slide-page">${scheduleMarkup(incoming)}</div>`:
+      `<div class="week-slide-page">${scheduleMarkup(incoming)}</div><div class="week-slide-page">${oldHtml}</div>`;
+    $('#view').replaceChildren(track);
+    track.style.transform=forward?'translateX(0)':'translateX(-50%)';
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    track.style.transform=forward?'translateX(-50%)':'translateX(0)';
+    await Promise.race([new Promise(resolve=>track.addEventListener('transitionend',resolve,{once:true})),new Promise(resolve=>setTimeout(resolve,450))]);
+    if(renderId===S.renderId&&S.page==='schedule'){S.schedule=incoming;S.week=next;renderSchedule();}
+  }finally{weekSliding=false;}
 }
 function courseDetail(index){
   const o=S.schedule.items[Number(index)];S.selectedOccurrence=o;const c=o.course;
@@ -318,7 +391,7 @@ function adjustCourse(memberIndex=0){
 async function saveAdjustment(form){const f=Object.fromEntries(new FormData(form)),m=S.adjustMember;const a={...m,date:f.date,sections:numberRange(f.sections,11),room:f.room.trim(),cancelled:f.cancelled==='on'};if(['2026-09-25','2026-10-01','2026-10-02','2026-10-03','2027-01-01'].includes(a.date)&&!a.cancelled&&!confirm('这一天在停课日列表中。仍要主动安排这次课程吗？'))return;const v=structuredClone(S.schedule.value);v.adjustments=v.adjustments.filter(x=>!(x.courseId===m.courseId&&x.originalDate===m.originalDate));v.adjustments.push(a);await saveSchedule(v);toast('这一次安排已更新。');}
 
 function renderSettings(){
-  const settings=S.settings.value,profile=S.profile.value,models=S.models,prompts=S.wordPrompts.value.presets;
+  const settings=S.settings.value,profile=S.profile.value,models=S.models,prompts=S.wordPrompts.value.presets,searchUsage=S.searchUsage?.accounts||[];
   const status={available:'可用',unavailable:'已停用',exhausted:'今日额度不足',cooldown:'冷却中',untested:'尚未检测'};
   setView(pageHead('设置')+`<div class="settings-grid"><div>
     <section class="panel"><h2>显示</h2><form id="profile-form"><label class="field" for="display-name">用户名<input id="display-name" name="displayName" maxlength="30" value="${esc(profile.displayName)}" placeholder="可不填"></label><div class="setting-row"><label for="show-name">显示用户名</label><input id="show-name" name="showName" type="checkbox" ${profile.showName?'checked':''}></div><div class="setting-row"><label for="minimal-mode">极简模式</label><input id="minimal-mode" name="minimalMode" type="checkbox" ${profile.minimalMode?'checked':''}></div><button class="btn small" type="submit">保存显示设置</button></form></section>
@@ -327,7 +400,7 @@ function renderSettings(){
     <section class="panel"><h2>我的数据</h2><div class="flex wrap" style="margin-top:12px"><a class="btn secondary" href="/api/backup" download>${icon('download',true)}导出备份</a>${btn('恢复备份','restore-backup',{cls:'secondary',icon:'upload'})}<input class="hidden" id="backup-file" type="file" accept="application/json,.json"></div></section>
   </div><div>
     <section class="panel"><h2>连接与使用</h2><p class="help-text">服务器：${esc(location.origin)}</p>${window.StudyDeskNative?`<div class="flex wrap">${window.StudyDeskNative.checkForUpdate?btn('检查应用更新','native-update',{cls:'secondary small',icon:'refresh'}):''}${btn('修改服务器地址','native-server',{cls:'secondary small',icon:'settings'})}</div>`:''}<details><summary class="help-text">课表与调课</summary><p class="help-text">七天同时显示；在课表内左右滑动切换教学周，点课程查看详情。单次调课与循环课程分别保存。</p></details><details><summary class="help-text">写作与积累</summary><p class="help-text">先独立翻译，点评后按建议重写。错误、词汇和句式会存入积累本，可以复习与备注。</p></details><details><summary class="help-text">词卡与复习</summary><p class="help-text">先判断认识程度，再看释义；三点表示认知等级。点“下一词”才会切换。跨天遗忘会缩短复习间隔；收藏、熟词和重难词可在词库管理。</p></details><details><summary class="help-text">内容来源与许可</summary><p class="help-text">英文释义来自 Open English WordNet 2025（CC BY 4.0）；选词及分层使用 wordfreq 3.1.1（CC BY-SA 4.0）。部分词没有中文或深度笔记。</p><p class="help-text"><a href="/licenses/CC-BY-4.0.txt" target="_blank" rel="noopener">CC BY 4.0</a> · <a href="/licenses/CC-BY-SA-4.0.txt" target="_blank" rel="noopener">CC BY-SA 4.0</a> · <a href="/licenses/wordfreq-NOTICE.txt" target="_blank" rel="noopener">完整署名</a></p></details>${btn('论文素材来源','paper-library',{cls:'ghost small',icon:'book'})}</section>
-    <section class="panel"><div class="section-title"><h2>AI 模型</h2>${btn('重新检测','probe',{cls:'secondary small',icon:'refresh'})}</div>${!models.configured?'<div class="error-banner">尚未配置 Gemini 密钥</div>':''}<div id="probe-state"></div>${models.models.map(v=>`<div class="model-row ${v.status==='unavailable'?'model-disabled':''}"><span class="rank">${String(v.priority).padStart(2,'0')}</span><div class="grow"><strong>${esc(v.name)}</strong><div class="account-lines">${(v.accounts||[]).map(a=>`<span class="${a.status==='available'?'ok':''}" title="${esc(a.message)}">${esc(a.account)} ${a.used}/${a.rpd} · ${status[a.status]||a.status}</span>`).join('')}</div></div><span class="tag ${v.status==='available'?'green':''}">${status[v.status]||esc(v.status)}</span></div>`).join('')}<p class="help-text">计数日：${models.quotaDay} · 下次换日：${timeLabel(models.resetAt)} 北京时间</p><details><summary class="help-text">模型优先级与计数说明</summary><p class="help-text">${esc(models.note)}。先遍历高等级模型的可用密钥，再向下一等级切换。检测也计入调用次数。</p></details></section>
+    <section class="panel"><div class="section-title"><h2>AI 模型</h2>${btn('重新检测','probe',{cls:'secondary small',icon:'refresh'})}</div>${!models.configured?'<div class="error-banner">尚未配置 Gemini 密钥</div>':''}<div id="probe-state"></div>${models.models.map(v=>`<div class="model-row ${v.status==='unavailable'?'model-disabled':''}"><span class="rank">${String(v.priority).padStart(2,'0')}</span><div class="grow"><strong>${esc(v.name)}</strong><div class="account-lines">${(v.accounts||[]).map(a=>`<span class="${a.status==='available'?'ok':''}" title="${esc(a.message)}">${esc(a.account)} ${a.used}/${a.rpd} · ${status[a.status]||a.status}</span>`).join('')}</div></div><span class="tag ${v.status==='available'?'green':''}">${status[v.status]||esc(v.status)}</span></div>`).join('')}<p class="help-text">计数日：${models.quotaDay} · 下次换日：${timeLabel(models.resetAt)} 北京时间</p><details><summary class="help-text">模型优先级与计数说明</summary><p class="help-text">${esc(models.note)}。先遍历高等级模型的可用密钥，再向下一等级切换。检测也计入调用次数。</p></details><details><summary class="help-text">搜索额度 · ${searchUsage.filter(a=>a.status==='available').length}/${searchUsage.length} 可用</summary>${searchUsage.map(a=>`<p class="help-text">Tavily ${a.slot}：${a.status==='available'?'可用':esc(a.status)} · ${a.remaining===null?'待检测':a.remaining+' credits'}</p>`).join('')||'<p class="help-text">未配置搜索密钥</p>'}<p class="help-text">${esc(S.searchUsage?.note||'')}</p></details></section>
   </div></div>`);
   if(S.focusPromptSettings){S.focusPromptSettings=false;requestAnimationFrame(()=>$('#word-prompt-settings')?.scrollIntoView({behavior:'smooth',block:'start'}));}
 }
@@ -352,7 +425,7 @@ async function openWordPrompt(w){
 }
 function renderChat(history){
   S.chatHistory=history;
-  setView(pageHead('AI 教练')+`<section class="panel"><div class="chat-shell"><div class="chat-messages" id="chat-messages">${!history.length?`<div class="suggestions">${['什么时候用 a，什么时候用 the？','如何谨慎地表达实验结论？','介绍方法有哪些通用句式？'].map(q=>`<button data-act="suggest-question" data-id="${esc(q)}">${q}</button>`).join('')}</div>`:history.map(h=>`<div class="chat-message user">${esc(h.request.question)}</div>${h.status==='done'?`<div class="chat-message">${esc(h.result.answer)}<small>${esc(h.result.model)}</small></div>`:h.status==='failed'?`<div class="error-banner">${esc(h.error)}</div>`:busyHtml('教练正在整理回答…')}`).join('')}</div><form class="chat-input" id="chat-form"><label class="sr-only" for="chat-question">你的问题</label><textarea id="chat-question" rows="2" maxlength="4000" placeholder="说说你卡在哪里…">${esc(stored('chat-draft')||'')}</textarea><button type="submit" class="btn" ${history.some(h=>['queued','running'].includes(h.status))?'disabled':''}>${icon('arrow')}<span>发送</span></button></form></div></section>`);
+  setView(pageHead('AI 教练')+`<section class="panel"><div class="chat-shell"><div class="chat-messages" id="chat-messages">${!history.length?`<div class="suggestions">${['什么时候用 a，什么时候用 the？','如何谨慎地表达实验结论？','介绍方法有哪些通用句式？'].map(q=>`<button data-act="suggest-question" data-id="${esc(q)}">${q}</button>`).join('')}</div>`:history.map(h=>`<div class="chat-message user">${esc(h.request.question)}</div>${h.status==='done'?`<div class="chat-message">${richText(h.result.answer)}${(h.result.sources||[]).length?`<div class="chat-sources">${h.result.sources.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.title)}</a>`).join('')}</div>`:''}<small>${esc(h.result.model)}</small></div>`:h.status==='failed'?`<div class="error-banner">${esc(h.error)}</div>`:busyHtml('教练正在整理回答…')}`).join('')}</div><form class="chat-input" id="chat-form"><label class="sr-only" for="chat-question">你的问题</label><textarea id="chat-question" rows="2" maxlength="4000" placeholder="说说你卡在哪里…">${esc(stored('chat-draft')||'')}</textarea><button type="submit" class="btn" ${history.some(h=>['queued','running'].includes(h.status))?'disabled':''}>${icon('arrow')}<span>发送</span></button></form></div></section>`);
   const msgs=$('#chat-messages');msgs.scrollTop=msgs.scrollHeight;
   history.filter(h=>['queued','running'].includes(h.status)).forEach(h=>watchJob(h.id,'ask'));
 }
@@ -388,6 +461,12 @@ async function action(act,id,e){
   if(act==='word-familiar'){await wordAction(S.word,'familiar');await loadWords(S.renderId);return;}
   if(act==='word-detail'){await showWord(id);return;}
   if(act==='word-relearn'){await wordAction(S.detailWord,'relearn');$('#modal').close();toast('已加入复习计划，明天或今日未评价时可继续学习。');await render();return;}
+  if(act==='word-lesson'){
+    modal('画面解析 · '+esc(S.detailWord?.id===id?S.detailWord.word:S.word?.word||''),busyHtml('正在整理词义画面…'));
+    const data=await api('/api/vocabulary/'+encodeURIComponent(id)+'/lesson',{});
+    if($('#modal').open)modal('画面解析 · '+esc(S.detailWord?.id===id?S.detailWord.word:S.word?.word||''),wordLessonHtml(data));
+    return;
+  }
   if(act==='word-page'){S.wordOffset=Math.max(0,S.wordOffset+60*Number(id));await loadWordList();return;}
   if(act==='check-spelling'){const v=$('#spelling-input').value.trim().toLowerCase();const w=S.detailWord;const ok=[w.word,...(w.variants||[])].some(s=>s.toLowerCase()===v);$('#spelling-result').innerHTML=`<div class="hint">${ok?'拼写正确，再想一想怎样用它造句。':'再看一眼词头，留意不同的字母。'}</div>`;return;}
   if(act==='ask-word'){const w=id?S.detailWord:S.word;await openWordPrompt(w);return;}
@@ -450,9 +529,10 @@ document.addEventListener('change',async e=>{
     const id=e.target.id,v=e.target.value;
     if(id==='exercise-level'){S.level=v;await nextExercise();}
     if(id==='exercise-category'){S.category=v;await nextExercise();}
+    if(id==='word-book'){S.wordBooks=await api('/api/vocabulary/books',{id:v,revision:S.wordBooks.revision});S.wordOffset=0;await loadWords(S.renderId);toast('已切换词书，学习进度保持同步。');}
     if(id==='word-level'||id==='word-filter'){S[id==='word-level'?'wordLevel':'wordFilter']=v;S.wordOffset=0;await loadWordList();}
     if(id==='note-filter'){S.noteFilter=v;renderNotebook();}
-    if(id==='schedule-week'){S.week=+v;await render();}
+    if(id==='schedule-week')await changeWeek(+v,false);
     if(id==='adjust-member'){adjustCourse(+v);}
     if(id==='backup-file'){
       const file=e.target.files[0];if(!file)return;if(file.size>32000000)throw new Error('备份文件超过 32 MB');
@@ -481,6 +561,18 @@ document.addEventListener('submit',async e=>{
   }catch(err){toast(err.message);}finally{if(submit?.isConnected)submit.disabled=false;}
 });
 window.addEventListener('hashchange',()=>{clearTimeout(draftTimer);render();window.scrollTo({top:0});});
+let navTouch=null;
+document.addEventListener('touchstart',e=>{
+  if(S.page==='schedule'||$('#modal').open||e.touches.length!==1||e.target.closest('input,textarea,select,[contenteditable],.deep-table')){navTouch=null;return;}
+  navTouch={x:e.touches[0].clientX,y:e.touches[0].clientY,page:S.page};
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!navTouch||!e.changedTouches.length||S.page!==navTouch.page)return;
+  const dx=e.changedTouches[0].clientX-navTouch.x,dy=e.changedTouches[0].clientY-navTouch.y;navTouch=null;
+  if(Math.abs(dx)<65||Math.abs(dx)<Math.abs(dy)*1.4)return;
+  const order=navs.map(n=>n[0]),index=order.indexOf(S.page),next=order[index+(dx<0?1:-1)];
+  if(next){pendingNavSwipe=dx<0?1:-1;go(next).catch(error=>{pendingNavSwipe=0;toast(error.message);});}
+},{passive:true});
 window.addEventListener('beforeunload',e=>{if(S.dirty){e.preventDefault();e.returnValue='';}});
 window.addEventListener('online',()=>{syncStatus(true);if(S.dirty)saveDraft().catch(e=>toast(e.message));});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.dirty)saveDraft().catch(()=>{});if(!document.hidden)checkSync();});
@@ -489,8 +581,8 @@ async function checkSync(){
   try{const {version,day}=await api('/api/sync');if(version!==S.version){const old=S.version;S.version=version;
     if(S.page==='settings'){
       if(!$('#modal').open&&!$('#profile-form :focus')&&!$('#settings-form :focus')){
-        const [profile,settings,prompts,models]=await Promise.all([api('/api/profile'),api('/api/settings'),api('/api/word-prompts'),api('/api/models')]);
-        if(S.page==='settings'){S.profile=profile;S.settings=settings;S.wordPrompts=prompts;S.models=models;applyProfileUI();renderSettings();}
+        const [profile,settings,prompts,models,searchUsage]=await Promise.all([api('/api/profile'),api('/api/settings'),api('/api/word-prompts'),api('/api/models'),api('/api/search/usage')]);
+        if(S.page==='settings'){S.profile=profile;S.settings=settings;S.wordPrompts=prompts;S.models=models;S.searchUsage=searchUsage;applyProfileUI();renderSettings();}
       }
     }else{const profile=await api('/api/profile');if(profile.revision!==S.profile?.revision){S.profile=profile;applyProfileUI();}}
     if(old&&S.page==='home'){const d=await api('/api/dashboard');if(S.page==='home'){S.dashboard=d;renderHome(d);}}
@@ -505,3 +597,9 @@ async function checkSync(){
 shell();
 render();
 setInterval(checkSync,7000);
+setInterval(()=>{
+  if(S.page!=='schedule'||!S.schedule||weekSliding||$('#modal').open)return;
+  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10),fraction=scheduleNowFraction(S.schedule,today),line=$('.week-now');
+  if((fraction===null)!==(!line)){renderSchedule();return;}
+  if(line)line.style.setProperty('--now-offset',fraction);
+},60000);

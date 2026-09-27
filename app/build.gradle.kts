@@ -2,7 +2,7 @@ plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.ko
 android {
     namespace = "io.github.cuimiles.studydesk"
     compileSdk = 36
-    defaultConfig { applicationId = "io.github.cuimiles.studydesk"; minSdk = 26; targetSdk = 36; versionCode = 7; versionName = "1.2.0-lan" }
+    defaultConfig { applicationId = "io.github.cuimiles.studydesk"; minSdk = 26; targetSdk = 36; versionCode = 8; versionName = "1.3.0-lan" }
     val lanKeystore = System.getenv("STUDYDESK_SIGNING_STORE_FILE")
     if (!lanKeystore.isNullOrBlank()) {
         signingConfigs.create("lanRelease") {

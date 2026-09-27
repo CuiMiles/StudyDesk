@@ -32,6 +32,26 @@ IDS = [
     ("gemma-4-26b-a4b-it", "Gemma 4 26B"),
 ]
 
+TEXT_SCHEMA = {"type": "string"}
+PAIR_SCHEMA = lambda left, right: {"type": "object", "properties": {left: TEXT_SCHEMA, right: TEXT_SCHEMA},
+                                   "required": [left, right], "additionalProperties": False}
+LESSON_SCHEMA = {"type": "object", "properties": {
+    "image": TEXT_SCHEMA,
+    "spectrum": {"type": "array", "items": PAIR_SCHEMA("word", "contrast"), "minItems": 3, "maxItems": 5},
+    "register": TEXT_SCHEMA,
+    "contexts": {"type": "array", "items": PAIR_SCHEMA("example", "note"), "minItems": 2, "maxItems": 2},
+    "tone": TEXT_SCHEMA,
+    "collocations": {"type": "array", "items": PAIR_SCHEMA("phrase", "note"), "minItems": 2, "maxItems": 3},
+    "network": TEXT_SCHEMA,
+    "integrated": PAIR_SCHEMA("english", "chinese")},
+    "required": ["image", "spectrum", "register", "contexts", "tone", "collocations", "network", "integrated"],
+    "additionalProperties": False}
+VERIFY_SCHEMA = {"type": "object", "properties": {
+    "issues": {"type": "array", "items": {"type": "object", "properties": {
+        "field": TEXT_SCHEMA, "claim": TEXT_SCHEMA, "correction": TEXT_SCHEMA},
+        "required": ["field", "claim", "correction"], "additionalProperties": False}, "maxItems": 8},
+    "lesson": LESSON_SCHEMA}, "required": ["issues", "lesson"], "additionalProperties": False}
+
 
 class AIError(Exception):
     pass
@@ -189,7 +209,9 @@ class Gemini:
                     "maxOutputTokens": profile["maxOutputTokens"]}
         if not mid.startswith("gemma"):
             settings["responseMimeType"] = "application/json"
-        if not probe and mid.startswith("gemini-3") and "lite" not in mid:
+            if purpose in ("word_lesson", "word_verify"):
+                settings["responseJsonSchema"] = LESSON_SCHEMA if purpose == "word_lesson" else VERIFY_SCHEMA
+        if not probe and mid.startswith("gemini-3") and ("lite" not in mid or purpose in ("word_lesson", "word_verify")):
             settings["thinkingConfig"] = {"thinkingLevel": profile["thinkingLevel"]}
         if system and mid.startswith("gemma"):
             prompt = system + "\n\n用户学习数据：\n" + prompt

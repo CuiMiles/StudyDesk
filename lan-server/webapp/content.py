@@ -1,5 +1,7 @@
 import datetime as dt
+import hashlib
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -145,6 +147,7 @@ class Content:
         self.index = catalog["entries"]
         for e in self.index:
             self.words[e["id"]]["level"] = e["level"]
+        self.books = {"general-10000": {"id": "general-10000", "title": "通用词汇 · 10,000", "entries": self.index}}
         self.dictionary_path = next((p for p in (
             ROOT / "StudyDesk/app/src/main/assets/content.db",
             ROOT.parent / "app/src/main/assets/content.db") if p.is_file()), None)
@@ -152,6 +155,25 @@ class Content:
         if self.dictionary_path:
             # Reuse the existing Android dictionary and pre-generated lessons, without touching model hosts.
             with sqlite3.connect(self.dictionary_path.resolve().as_uri() + "?mode=ro", uri=True) as c:
+                by_name = {entry["word"].casefold(): entry["id"] for entry in self.index}
+                ielts = []
+                for row in c.execute("SELECT b.word_id,w.headword,w.pronunciation,w.forms_json,b.gloss_zh "
+                                     "FROM book_entry b JOIN word w ON b.word_id=w.id "
+                                     "WHERE b.book_id='ielts-word-list' ORDER BY b.position"):
+                    android_id, headword, ipa, forms, gloss = row
+                    wid = by_name.get(headword.casefold(), android_id)
+                    if wid not in self.words:
+                        senses = [{"id": sid, "pos": pos, "definition": definition,
+                                   "examples": json.loads(examples), "synonyms": json.loads(synonyms)}
+                                  for sid, pos, definition, examples, synonyms in c.execute(
+                                      "SELECT id,pos,definition_en,examples_json,synonyms_json FROM sense "
+                                      "WHERE word_id=? ORDER BY source_order", (android_id,))]
+                        self.words[wid] = {"id": wid, "word": headword, "ipa": ipa, "variants": json.loads(forms),
+                                           "senses": senses, "zh": gloss, "level": "L3"}
+                    elif not self.words[wid].get("zh"):
+                        self.words[wid]["zh"] = gloss
+                    ielts.append({"id": wid, "word": headword, "level": self.words[wid]["level"], "deep": False})
+                self.books["ielts-word-list"] = {"id": "ielts-word-list", "title": "雅思词表 · 3,611", "entries": ielts}
                 glossary = {word.casefold(): gloss for word, gloss in c.execute(
                     "SELECT w.headword,b.gloss_zh FROM word w JOIN book_entry b ON b.word_id=w.id")}
                 self.deep_ids = {word.casefold(): wid for word, wid in c.execute(
@@ -161,6 +183,30 @@ class Content:
                     entry["zh"] = glossary[entry["word"].casefold()]
             for entry in self.index:
                 entry["deep"] = entry.get("deep", False) or entry["word"].casefold() in self.deep_ids
+            for entry in self.books["ielts-word-list"]["entries"]:
+                entry["deep"] = entry["word"].casefold() in self.deep_ids
+        # Drop-in catalog interface: one JSON manifest per future word book.
+        by_name = {entry["word"].casefold(): entry["id"] for entry in self.words.values()}
+        for path in sorted((CONTENT / "books").glob("*.json")):
+            manifest = json.loads(path.read_text())
+            book_id, title, rows = manifest.get("id"), manifest.get("title"), manifest.get("entries")
+            if (not isinstance(book_id, str) or not re.fullmatch(r"[a-z0-9-]{3,48}", book_id)
+                    or book_id in self.books or not isinstance(title, str) or not 1 <= len(title) <= 60
+                    or not isinstance(rows, list) or not 1 <= len(rows) <= 50000):
+                raise ValueError("词书清单格式不正确: " + path.name)
+            entries = []
+            for item in rows:
+                word = item.get("word") if isinstance(item, dict) else item
+                if not isinstance(word, str) or not re.fullmatch(r"[A-Za-z][A-Za-z' -]{0,63}", word):
+                    raise ValueError("词书单词格式不正确: " + path.name)
+                wid = by_name.get(word.casefold())
+                if not wid:
+                    wid = "custom-" + hashlib.sha256(word.casefold().encode()).hexdigest()[:16]
+                    self.words[wid] = {"id": wid, "word": word, "ipa": "", "variants": [],
+                                       "senses": [], "zh": "", "level": "L3"}
+                    by_name[word.casefold()] = wid
+                entries.append({"id": wid, "word": word, "level": self.words[wid]["level"], "deep": False})
+            self.books[book_id] = {"id": book_id, "title": title, "entries": entries}
         self.papers = json.loads((CONTENT / "papers.json").read_text())
         self.exercises = json.loads((CONTENT / "exercises.json").read_text())
         self.exercise_map = {e["id"]: e for e in self.exercises}

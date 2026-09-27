@@ -17,6 +17,8 @@ from webapp.db import Conflict, Database, day, quota_day
 from webapp.gemini import AIError, Gemini, parse_json
 from webapp.server import make_server
 from webapp.service import StudyService, validate_feedback
+from webapp.tavily import Tavily
+from webapp.word_lesson import validate_lesson
 
 FEEDBACK = {"scores": {"meaning": 3, "grammar": 2, "academic": 3, "clarity": 3}, "summary": "核心意思已经表达出来了。",
             "strengths": ["比较方向正确"], "corrections": [{"original": "more difficulty", "revised": "more difficult",
@@ -47,7 +49,9 @@ class ServiceTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_source_content_and_reference_hidden(self):
-        self.assertEqual(10000, len(self.app.content.words))
+        self.assertEqual(10000, len(self.app.content.books["general-10000"]["entries"]))
+        self.assertEqual(3611, len(self.app.content.books["ielts-word-list"]["entries"]))
+        self.assertGreaterEqual(len(self.app.content.words), 11000)
         self.assertEqual(40, len(self.app.exercises()))
         self.assertNotIn("reference", self.app.exercise_detail("resnet-01"))
         self.assertIn("reference", self.app.exercise_detail("resnet-01", True))
@@ -92,6 +96,17 @@ class ServiceTests(unittest.TestCase):
         w = self.app.next_word()["word"]
         self.app.rate_word(w["id"], {"rating": "favorite", "requestId": "favorite-123", "revision": 0})
         self.assertEqual(w["id"], self.app.next_word()["word"]["id"])
+
+    def test_book_switch_preserves_shared_word_progress(self):
+        books = self.app.word_books()
+        self.assertEqual("ielts-word-list", books["selected"])
+        wid = next(e["id"] for e in self.app.content.books["ielts-word-list"]["entries"]
+                   if e["id"] in {r["id"] for r in self.app.content.index})
+        self.app.rate_word(wid, {"rating": "favorite", "requestId": "book-share-123", "revision": 0})
+        changed = self.app.select_word_book({"id": "general-10000", "revision": books["revision"]})
+        self.assertEqual("general-10000", changed["selected"])
+        self.assertTrue(self.app.word(wid)["progress"]["favorite"])
+        self.assertIn(wid, [e["id"] for e in self.app.book_entries()])
 
     def test_revealed_card_survives_device_switch_until_next(self):
         w = self.app.next_word()["word"]
@@ -247,6 +262,45 @@ class QuotaTests(unittest.TestCase):
         self.assertIsNone(self.ai.reserve(self.cfg,"review",10))
 
 
+class SearchAndLessonTests(unittest.TestCase):
+    def test_tavily_rotates_on_quota_error_and_reuses_cache(self):
+        with tempfile.TemporaryDirectory() as location, patch("webapp.tavily.read_keys", return_value=["tvly-first", "tvly-second"]):
+            tavily = Tavily(Database(Path(location) / "search.sqlite3"))
+            calls = []
+            def request(key, path, payload=None, timeout=20):
+                calls.append((key, path))
+                if path == "/usage":
+                    used = 10 if key == "tvly-first" else 0
+                    return {"key": {"usage": used, "limit": 100},
+                            "account": {"plan_usage": used, "plan_limit": 100}}
+                if key == "tvly-second":
+                    raise urllib.error.HTTPError("https://api.tavily.com/search", 432, "quota", None, None)
+                return {"results": [{"title": "Dictionary entry", "url": "https://example.org/word",
+                                      "content": "A verified meaning"}], "usage": {"credits": 1}}
+            with patch.object(tavily, "request", side_effect=request):
+                first = tavily.search("word definition")
+                second = tavily.search("word definition")
+            self.assertEqual("A verified meaning", first["results"][0]["content"])
+            self.assertTrue(second["cached"])
+            self.assertEqual(["tvly-second", "tvly-first"],
+                             [key for key, path in calls if path == "/search"])
+            self.assertEqual("exhausted", tavily.summary()[1]["status"])
+
+    def test_word_lesson_requires_target_in_both_usage_examples(self):
+        lesson = {"image": "一位研究者在灯下逐行核对实验记录，发现一处遗漏后立即重新计算，直到每个步骤都经得起检查。", "spectrum": [{"word": w, "contrast": "重点不同，要看规则约束、覆盖范围以及检查方法是否严密。"}
+                 for w in ("strict", "thorough", "careful")], "register": "适合正式语境",
+                 "contexts": [{"example": "A rigorous method helps.", "note": "自然搭配，强调方法经得起逐项检查。"},
+                              {"example": "A rigorous smile appeared.", "note": "描述表情严厉时应改用 stern，而不能形容微笑。"}],
+                 "tone": "中性偏正面，强调细致核查和较高标准。", "collocations": [{"phrase": "rigorous testing", "note": "严格测试，突出完整的核查过程。"},
+                 {"phrase": "rigorous analysis", "note": "严密分析，强调结论需要可靠依据。"}],
+                 "network": "先看 evidence，选好 method，逐项核对每一步，最后才相信 result，这样判断更可靠。",
+                 "integrated": {"english": "A rigorous method improves reliability.", "chinese": "严谨的方法提高可靠性。"}}
+        self.assertEqual(2, len(validate_lesson(lesson, "rigorous")["contexts"]))
+        lesson["contexts"][1]["example"] = "A stern smile appeared."
+        with self.assertRaises(AIError):
+            validate_lesson(lesson, "rigorous")
+
+
 class HTTPTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -265,6 +319,7 @@ class HTTPTests(unittest.TestCase):
         except urllib.error.HTTPError as e:return e.code,e.read()
     def test_health_and_private_files(self):
         self.assertEqual(200,self.request('/api/health')[0])
+        self.assertEqual(200,self.request('/api/search/usage')[0])
         for p in ['/.env','/../.env','/runtime/studydesk.sqlite3','/%2e%2e/.env','/service.py']:
             self.assertEqual(404,self.request(p)[0])
     def test_cross_origin_and_rebinding_rejected(self):

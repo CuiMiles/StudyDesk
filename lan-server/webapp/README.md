@@ -9,10 +9,12 @@
 - 打开即是课表：紧凑周次/日期标题旁标出“本周”或“非本周”，下方直接显示七天日期与 1–11 节时间轴；只显示所选周实际发生的课程，课程卡跨越实际节次，点卡片可看详情。手机无需横向滚动看星期；在课表左右滑动切换教学周。今日概览移至第二栏。使用说明集中在设置。
 - 2026 秋课表：已录入 18 条课程，包括第 1–8 周周三第 3–4 节体育（羽毛球，胡浩，2 号巨构七楼羽毛球场）；第 7 周周日数据库课；第 18 周周四、周五线上考试；工程伦理第 1–10 周合并 9–11 节，第 11 周只显示 9–10 节。18 周日历、夏冬作息、节次冲突、单次调课/取消/恢复与循环课程隔离；新增、编辑、删除、JSON 导入。
 - 显示设置：用户名可自定义或隐藏；极简模式默认开启，减少非必要信息。单词提问可选择和管理多套个人提示词模板，设置及模板随学习数据同步、备份。
-- 背词：10,000 词英文释义；从现有 Android `content.db` 补充中文与预制双语深度解析。先回忆后揭示、朗读、三点认知、收藏、熟词本、重难词、拼写与每日复习。一天同一单词只计一次认知评价；跨天遗忘会缩短间隔。
+- 背词：默认现有的 3,611 词雅思词书，可切换 10,000 词通用词书；额外词书可通过 `webapp/content/books/*.json` 上架，同一单词跨书共用进度。英文释义从原词库读取，中文与预制双语解析沿用 Android `content.db`。先回忆后揭示、朗读、三点认知、收藏、熟词本、重难词、拼写与每日复习。一天同一单词只计一次认知评价；跨天遗忘会缩短间隔。
+- 词典扩展：ECDICT SQLite 作为本地主库，DictionaryAPI.dev 补充英文词义和音标，Tatoeba 补充带来源的英文例句，Datamuse 补充联想词。查过的词与来源状态保存在 `webapp/runtime/lexicon.sqlite3`；不可用的来源一小时后重试，不妨碍本地词卡。手机端朗读可使用 Android 原生 TTS。
 - 学术写作：40 道离线练习，按基础句、进阶表达、短段落分层，使用可迁移的句式，减少论文专有名词；题目不消耗 API。草稿自动保存，可跨设备继续；本机离线草稿提供恢复入口。版本冲突不会静默覆盖。
 - AI 点评：四维评分、原句逐项纠错、简明教学、自然改写、通用词汇/句式和具体重写任务。保留每次译文和点评；纠错、词汇、句式自动积累、按间隔复习、置顶和个人备注。
 - AI 教练：支持结合当前练习答疑，历史保存在服务器。请求队列持久化，离开页面后任务继续；重启中断的任务明确标失败，避免重复计费。
+- 简短答疑使用较低的思考等级；问到词义、搭配或用法时，先检索学习词典并在回答旁展示出处。检索摘要不视为指令，也不会因搜不到就把自然用法判为错误。
 - 备份：完整 JSON 导入导出；恢复前创建 SQLite 快照；启动时及每日备份，自动清理时保留最近 30 份。恢复学习记录不回滚 AI 调用计数。
 
 ## 本地运行
@@ -73,6 +75,32 @@ GEMINI_API_KEY3_QUOTA_GROUP=project_b
 首次使用前配置分组。已有计数时改分组会改变本地预算归属，需要合并历史计数；不要在一天中途改组来误判剩余额度。应用无法获知其他程序消耗，也不声称本地余额等于 Google 余额。
 
 系统提示词在 [review_system.txt](content/review_system.txt) 与 [tutor_system.txt](content/tutor_system.txt)。语义 → 语法 → 清晰度 → 适度学术语体；接受同义写法；最多四处优先修改；不强化没有证据的结论；根据上次表现安排重写。Gemini 使用 `systemInstruction`，Gemma 使用等价的前置任务规则。Gemini 3 保留[官方建议的 temperature=1.0](https://ai.google.dev/gemini-api/docs/gemini-3)，完整 Flash 的点评使用 high 思考等级。输出经过字段、分数和原句引用检查，错误结构不会保存为成功点评。
+
+## 本地词典、搜索与词义样例
+
+本机的 ECDICT SQLite 存放在 `webapp/runtime/sources/stardict.db`，不会提交到 Git。新机器执行：
+
+```bash
+python3 webapp/scripts/install_ecdict.py
+```
+
+脚本下载 [ECDICT 官方 SQLite 版本](https://github.com/skywind3000/ECDICT/releases/tag/1.0.28)并校验词条数。外部扩展使用 [DictionaryAPI.dev](https://dictionaryapi.dev/)、[Tatoeba API](https://api.tatoeba.org/)、[Datamuse](https://www.datamuse.com/api/)。例句展示来源链接及 Tatoeba 许可标记；英语句子是外部资料，不应当作模型生成的事实。
+
+Tavily 在服务器根目录 `.env` 里配置 JSON 列表，密钥不出现在前端、备份或日志：
+
+```dotenv
+TAVILY_API_KEYS=["第一个密钥","第二个密钥"]
+```
+
+当前六个 Key 均已做实际搜索探测。每次搜索先读取使用量，按剩余额度排序以均衡使用，遇到额度耗尽或限流换下一个，并缓存相同查询。设置页可展开查看各槽位估计余额；真正的上游余额以 [Tavily 用量接口](https://docs.tavily.com/documentation/api-reference/endpoint/usage) 为准。[官方积分规则](https://docs.tavily.com/documentation/api-credits)说明免费计划按账号每月赠送 credits；若多个 Key 属于同一账号，不能把它们当成独立额度相加。词义复核的搜索仅发词或搭配，不上传个人写作记录。
+
+五步画面词义解析目前只生成 `rigorous`、`subtle` 的三种对照样例，在局域网访问 `http://服务器IP:8765/preview/words`：A 本地词典＋一次生成，B 学习词典定向搜索＋一次生成，C 本地初稿＋词典搜索＋独立复核。词卡中的正式入口默认关闭，待验收后才设置 `STUDYDESK_WORD_LESSONS_ENABLED=1`。三种路线均只用 Gemini 3.5 Flash-Lite；输出有 JSON schema、中文长度、近义词、例句和联想网络校验，并且由网页组件排版，模型的 Markdown 星号不会直接渲染。生成命令：
+
+```bash
+python3 -m webapp.scripts.preview_word_lessons
+```
+
+两个词的样例只是质量门槛；未对整本词书运行批量 AI 生成。复核会减少明显错误，但仍需人工看样例，尤其要检查反例是否真的不自然。
 
 ## 论文素材
 

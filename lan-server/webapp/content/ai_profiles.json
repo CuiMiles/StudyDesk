@@ -4,6 +4,9 @@
   "modelOrder": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemma-4-31b-it", "gemma-4-26b-a4b-it"],
   "review": {"temperature": 0.3, "gemini3Temperature": 1.0, "maxOutputTokens": 8192, "timeout": 70, "thinkingLevel": "high", "systemFile": "review_system.txt"},
   "ask": {"temperature": 0.5, "gemini3Temperature": 1.0, "maxOutputTokens": 4096, "timeout": 55, "thinkingLevel": "medium", "systemFile": "tutor_system.txt"},
+  "ask_simple": {"temperature": 0.5, "gemini3Temperature": 1.0, "maxOutputTokens": 2048, "timeout": 45, "thinkingLevel": "minimal", "systemFile": "tutor_system.txt"},
+  "word_lesson": {"temperature": 1.0, "gemini3Temperature": 1.0, "maxOutputTokens": 2800, "timeout": 65, "thinkingLevel": "low", "systemFile": "word_lesson_system.txt"},
+  "word_verify": {"temperature": 1.0, "gemini3Temperature": 1.0, "maxOutputTokens": 3200, "timeout": 65, "thinkingLevel": "medium", "systemFile": "word_verify_system.txt"},
   "probe": {"temperature": 1.0, "gemini3Temperature": 1.0, "maxOutputTokens": 1024, "timeout": 22},
   "teaching": ["先忠实表达，再语法，再简洁与学术语体", "每次聚焦最多四处可操作的改进", "承认合理同义表达，参考译文不是唯一标准", "提炼能替换方法名和模型名复用的句型", "引用学生原句后逐项解释，组织一次针对性重写", "不编造事实、文献、显著性或最优性能"]
 }
