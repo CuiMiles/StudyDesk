@@ -25,7 +25,7 @@ fs.mkdirSync(artifacts, {recursive:true});
     assert.equal(await phone.locator('.week-day').count(),7,'All seven weekdays are visible');
     assert.equal(await phone.evaluate(()=>document.querySelector('.week-board').scrollWidth<=document.querySelector('.week-board').clientWidth),true,'No horizontal weekday scroll');
     await phone.locator('#schedule-week').selectOption('1');
-    await phone.waitForFunction(()=>document.querySelector('#schedule-week')?.value==='1');
+    await phone.locator('.week-board[aria-label="第 1 周课表"]').waitFor();
     assert.equal(await phone.locator('.week-course').filter({hasText:'体育'}).count(),1,'Wednesday sports course appears in weeks 1–8');
     await phone.evaluate(()=>{
       const board=document.querySelector('.week-board');
@@ -33,31 +33,35 @@ fs.mkdirSync(artifacts, {recursive:true});
       board.dispatchEvent(new TouchEvent('touchstart',{touches:[at(300)],changedTouches:[at(300)],bubbles:true}));
       board.dispatchEvent(new TouchEvent('touchend',{touches:[],changedTouches:[at(100)],bubbles:true}));
     });
-    await phone.waitForFunction(()=>document.querySelector('#schedule-week')?.value==='2');
+    await phone.locator('.week-board[aria-label="第 2 周课表"]').waitFor();
     const geometry=await phone.evaluate(()=>({
       top:document.querySelector('.week-board').getBoundingClientRect().top,
-      cardHeight:document.querySelector('.week-course:not(.offweek)').getBoundingClientRect().height,
+      cardHeight:document.querySelector('.week-course').getBoundingClientRect().height,
       width:document.querySelector('.week-board').scrollWidth-document.querySelector('.week-board').clientWidth,
     }));
     assert.equal(await phone.locator('.week-period').count(),11,'Each period has its own time label');
     assert(geometry.top<150,'Timetable begins immediately below the compact heading');
     assert(geometry.cardHeight>100,'A two-period course spans the time axis');
     assert.equal(geometry.width,0,'Seven date columns fit the mobile viewport');
-    assert(await phone.locator('.week-course.offweek').count()>0,'Other-week courses are shown as faint context');
-    assert(await phone.locator('.week-course.holiday').count()>0,'Cancelled holiday courses keep their positions without appearing active');
+    const week2=(await api(phone,'/api/schedule?week=2')).data;
+    assert.equal(await phone.locator('.week-course').count(),week2.items.length,'Only actual courses in the selected week are shown');
+    assert.equal(await phone.locator('.week-course.offweek,.week-course.holiday').count(),0,'No other-week or cancelled holiday placeholders');
+    const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+    assert.equal(await phone.locator('.schedule-week-status').textContent(),week2.days.includes(today)?'本周':'非本周');
     await phone.locator('.week-day').nth(2).click();
     assert.match(await phone.locator('.schedule-heading h1').textContent(),/周三/,'Day selection updates heading');
     await phone.locator('.week-day').nth(6).click();
-    await phone.locator('.week-course:not(.offweek)').first().click();
+    await phone.locator('.week-course').first().click();
     assert.match(await phone.locator('#modal .modal-head').textContent(),/课程详情/,'Current-week course opens details');
     await phone.locator('#modal [data-act="close-modal"]').click();
-    await phone.locator('.week-course.offweek:not(.holiday)').first().click();
-    assert.match(await phone.locator('#modal .modal-head').textContent(),/其他周课程/,'Faint course opens its regular-week details');
-    await phone.locator('#modal [data-act="close-modal"]').click();
-    await phone.locator('.week-course.holiday').first().click();
-    assert.match(await phone.locator('#modal .modal-head').textContent(),/本次停课/,'Holiday course is clearly marked cancelled');
-    await phone.locator('#modal [data-act="close-modal"]').click();
     await phone.screenshot({path:path.join(artifacts,'mobile-week.png'),fullPage:true});
+    await phone.locator('#schedule-week').selectOption('9');
+    await phone.locator('.week-board[aria-label="第 9 周课表"]').waitFor();
+    const week9=(await api(phone,'/api/schedule?week=9')).data;
+    assert.equal(await phone.locator('.week-course').count(),week9.items.length,'Later weeks show only their active courses');
+    assert.equal(await phone.locator('.week-course').filter({hasText:'体育'}).count(),0,'First-eight-week sports does not appear in week 9');
+    assert(await phone.locator('.week-course').filter({hasText:'深度学习'}).count()>0,'Later-week course appears in week 9');
+    assert.equal(await phone.locator('.schedule-week-status').textContent(),week9.days.includes(today)?'本周':'非本周');
     await visit(phone,'home');await visit(pc,'home');
     await phone.screenshot({path:path.join(artifacts,'mobile-home.png'),fullPage:true});
     await pc.screenshot({path:path.join(artifacts,'desktop-home.png'),fullPage:true});

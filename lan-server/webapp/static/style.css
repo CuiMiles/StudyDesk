@@ -31,6 +31,8 @@
 .schedule-week-select select{appearance:none;-webkit-appearance:none;border:0;background:transparent;box-shadow:none;padding:0 2px 0 0;border-radius:0;color:inherit;font:inherit;letter-spacing:inherit;cursor:pointer;width:3.5em;min-height:0}
 .schedule-week-select select:focus-visible{outline:2px solid #384966;outline-offset:2px}
 .schedule-subdate{font-size:16px;line-height:1.25;margin-top:4px;color:#333a4c;font-weight:480}
+.schedule-week-status{display:inline-flex;align-items:center;vertical-align:middle;margin-left:9px;padding:3px 7px;border-radius:5px;background:#d4d9e8;color:#626c81;font-size:12px;font-weight:650;line-height:1.2}
+.schedule-week-status.current{background:#30323a;color:#fff}
 .schedule-head-actions{display:flex;align-items:center;gap:4px;padding-top:2px;flex-shrink:0}
 .schedule-head-actions .icon-btn{min-width:39px;min-height:39px;color:#1d2434;border-radius:11px}
 .schedule-head-actions .icon-btn:hover{background:#ffffff75}
@@ -56,9 +58,6 @@
 .week-course strong{display:block;font-size:15px;line-height:1.22;font-weight:650;color:inherit}
 .week-course .course-room{display:block;font-size:12px;line-height:1.25;opacity:1;color:inherit;margin:0}
 .minimal-mode .week-course .course-room{display:block}
-.week-course.offweek{opacity:.5}
-.week-course.offweek:hover,.week-course.offweek:focus-visible{opacity:.85}
-.offweek-badge{display:block;align-self:flex-start;margin-top:auto;padding:2px 3px;border-radius:3px;background:#ffffff26;color:#fff;font-size:9px;line-height:1.1;word-break:keep-all;white-space:nowrap}
 .conflict-dot{z-index:1;top:2px;right:2px;background:#fff;color:#9b3d43;font-size:10px;width:14px;height:14px;text-align:center;line-height:14px}
 @media(max-width:760px){
   .schedule-page .main{padding:7px 5px 92px}
@@ -80,7 +79,6 @@
   .week-course{gap:4px;padding:5px 3px;border-radius:6px}
   .week-course strong{font-size:12px;line-height:1.22}
   .week-course .course-room{font-size:10px;line-height:1.2}
-  .offweek-badge{font-size:8px}
   .schedule-page .mobile-nav{background:#bfd0e7ed;border:0;box-shadow:0 -3px 12px #7389ae17;justify-content:space-around;padding:8px 5px calc(10px + env(safe-area-inset-bottom))}
   .schedule-page .mobile-nav button{min-width:0;flex:1;min-height:41px;padding:0 2px;background:none;color:#78869d;font-size:14px;font-weight:500}
   .schedule-page .mobile-nav button.active{background:none;color:#161c2b;font-weight:680}
